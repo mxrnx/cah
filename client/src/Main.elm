@@ -76,7 +76,7 @@ update msg model =
         ( { model | status = LoggingIn }
         , Http.post
             { body = jsonBody (Encode.string model.userName)
-            , url = "http://localhost:8080/Login"
+            , url = "http://localhost:5000/Player"
             , expect = Http.expectJson LoginAnswer loginDecoder
             }
         )
@@ -92,7 +92,7 @@ update msg model =
           )
 
 loginDecoder : Decoder String
-loginDecoder = field "acceptedUserName" string
+loginDecoder = field "name" string
 
 stringHttpError : Http.Error -> Status
 stringHttpError err =
