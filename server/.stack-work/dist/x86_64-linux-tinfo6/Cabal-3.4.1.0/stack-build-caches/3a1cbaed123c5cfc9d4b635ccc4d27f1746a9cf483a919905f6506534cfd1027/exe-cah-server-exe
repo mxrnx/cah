@@ -1,0 +1,18 @@
+/home/mpm/.stack/programs/x86_64-linux/ghc-tinfo6-9.0.2/lib/ghc-9.0.2/include/ghcversion.h:
+  hash: b6281754d6dc5c5462a97f01fbffb615a7d9f031384e8e8250fce23e8f43f266
+/home/mpm/git/cah/server/src/Models/Player.hs:
+  hash: d7d08426ae66ab5a580b722d98719b60c0a6353ee1a8475e4730d5d98f32080a
+/home/mpm/git/cah/server/.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.4.1.0/build/cah-server-exe/autogen/cabal_macros.h:
+  hash: 665b47862f39d97fe63153e9977f8fe4f4b0c2fe3d33881f67e04263d047edb5
+/usr/include/stdc-predef.h:
+  hash: 7afa7fcfd2a1ac2d5fe86672db5828460a736519680da0b9fac4d91e5f227817
+/home/mpm/git/cah/server/.stack-work/dist/x86_64-linux-tinfo6/Cabal-3.4.1.0/build/cah-server-exe/autogen/Paths_cah_server.hs:
+  hash: 7215b818ba1301ed18c480a43aaf464f19fae5a243b9c087b3e30085f19e711b
+/home/mpm/git/cah/server/package.yaml:
+  hash: b4681688280eed79bbdeaba00103fe89c0fde5aba055bd5a11bb3bd308f8f46f
+/home/mpm/git/cah/server/README.md:
+  hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+/home/mpm/git/cah/server/cah-server.cabal:
+  hash: 407565ec608fd4772abac3fbd7db35441e50c3fa968ce5885bbb08cc7cf89898
+/home/mpm/git/cah/server/src/Main.hs:
+  hash: 3fd93181b8ba26507672da022938cc4c782425e1f44718b5f07d3b1a132953ad
