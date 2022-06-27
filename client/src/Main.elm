@@ -7,6 +7,7 @@ import Html.Events exposing (onInput, onClick)
 import Http exposing (jsonBody, Error(..))
 import Json.Encode as Encode
 import Json.Decode exposing (Decoder, field, string, list, map2)
+import Time exposing (every)
 import UUID exposing (UUID)
 
 
@@ -26,8 +27,8 @@ main =
 -- MODEL
 
 type alias Player =
-    { id   : UUID
-    , name : String
+    { id     : UUID
+    , name   : String
     }
 
 type Status
@@ -73,12 +74,14 @@ player =
 
 
 type Msg
-  = LogInAnswer (Result Http.Error UUID)
+  = LogInAnswer (Result Http.Error Player)
   | LogOutAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
+  | CzarAnswer (Result Http.Error UUID)
   | EditName String
   | LogIn
   | LogOut
+  | Tick Time.Posix
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -93,7 +96,7 @@ update msg model =
         , Http.post
             { body = jsonBody (Encode.string model.userName)
             , url = "https://localhost:5001/Player"
-            , expect = Http.expectJson LogInAnswer UUID.jsonDecoder
+            , expect = Http.expectJson LogInAnswer player
             }
         )
     LogOut ->
@@ -113,8 +116,8 @@ update msg model =
                 )
     LogInAnswer result ->
       case result of
-        Ok newId ->
-          ( { model | status = LoggedIn , id = Just newId }
+        Ok newPlayer ->
+          ( { model | status = LoggedIn , id = Just newPlayer.id }
           , Http.get
               { url = "https://localhost:5001/Player"
               , expect = Http.expectJson PlayerListAnswer (list player)
@@ -145,6 +148,31 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
+    CzarAnswer result ->
+      case result of
+        Ok czarId ->
+          ( { model | czar = Just czarId }
+          , Cmd.none 
+          )
+        Err httpErr ->
+          ( { model | status = stringHttpError httpErr }
+          , Cmd.none
+          )
+    Tick _ ->
+      ( model
+      , Cmd.batch
+        [ Http.get
+            { url = "https://localhost:5001/Player"
+            ,  expect = Http.expectJson PlayerListAnswer (list player)
+            }
+        , Http.get
+            { url = "https://localhost:5001/Czar"
+            ,  expect = Http.expectJson CzarAnswer UUID.jsonDecoder
+            }
+
+        ]
+      )
+
 
 stringHttpError : Http.Error -> Status
 stringHttpError err =
@@ -161,7 +189,9 @@ stringHttpError err =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.none
+  if model.status == NotLoggedIn || model.status == LoggingIn
+  then Sub.none
+  else Time.every 1000 Tick
 
 
 

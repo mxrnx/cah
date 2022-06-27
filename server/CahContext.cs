@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Server.Models;
+using Server.Models.Entities;
 
 namespace Server;
 
@@ -9,5 +9,6 @@ public class CahContext : DbContext
     {
     }
 
+    public Guid CurrentCzar = Guid.Empty;
     public DbSet<Player> Players { get; set; } = null!;
 }
