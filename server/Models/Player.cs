@@ -1,4 +1,4 @@
 namespace Server.Models;
 
-public readonly record struct Player(Guid Id, String Name);
-public readonly record struct PlayerCreate(String Name);
+public record Player(Guid Id, string Name);
+public record PlayerCreate(string Name);

@@ -1,12 +1,12 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, text, pre, div, input, button)
+import Html exposing (Html, text, pre, div, input, button, ul, li)
 import Html.Attributes exposing (placeholder, value)
 import Html.Events exposing (onInput, onClick)
 import Http exposing (jsonBody, Error(..))
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, field, string)
+import Json.Decode exposing (Decoder, field, string, list, map2)
 import UUID exposing (UUID)
 
 
@@ -38,6 +38,7 @@ type Status
 
 type alias Model =
     { userName : String       -- username of the current player
+    , id       : Maybe UUID   -- id of the current player
     , status   : Status       -- status object
     , players  : List Player  -- list of all players
     , czar     : Maybe UUID   -- UUID of the current card czar
@@ -47,22 +48,37 @@ type alias Model =
 init : () -> (Model, Cmd Msg)
 init _ =
   ( { userName = ""
-    , status = NotLoggedIn
-    , players = []
-    , czar = Nothing
+    , id       = Nothing
+    , status   = NotLoggedIn
+    , players  = []
+    , czar     = Nothing
     }
   , Cmd.none
   )
 
 
 
+-- DECODERS
+
+
+
+player : Decoder Player
+player =
+    map2 Player
+        (field "id" UUID.jsonDecoder)
+        (field "name" string)
+
+
 -- UPDATE
 
 
 type Msg
-  = LoginAnswer (Result Http.Error String)
+  = LogInAnswer (Result Http.Error UUID)
+  | LogOutAnswer (Result Http.Error ())
+  | PlayerListAnswer (Result Http.Error (List Player))
   | EditName String
   | LogIn
+  | LogOut
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -76,23 +92,59 @@ update msg model =
         ( { model | status = LoggingIn }
         , Http.post
             { body = jsonBody (Encode.string model.userName)
-            , url = "http://localhost:5000/Player"
-            , expect = Http.expectJson LoginAnswer loginDecoder
+            , url = "https://localhost:5001/Player"
+            , expect = Http.expectJson LogInAnswer UUID.jsonDecoder
             }
         )
-    LoginAnswer result ->
+    LogOut ->
+        case model.id of
+            Nothing -> ( model , Cmd.none )
+            Just id ->
+                ( { model | status = LoggingIn }
+                , Http.request
+                    { method = "DELETE"
+                    , headers = []
+                    , timeout = Nothing
+                    , tracker = Nothing
+                    , body = jsonBody (Encode.string (UUID.toString id))
+                    , url = "https://localhost:5001/Player"
+                    , expect = Http.expectWhatever LogOutAnswer
+                    }
+                )
+    LogInAnswer result ->
       case result of
-        Ok fullText ->
-          ( { model | status = LoggedIn }
+        Ok newId ->
+          ( { model | status = LoggedIn , id = Just newId }
+          , Http.get
+              { url = "https://localhost:5001/Player"
+              , expect = Http.expectJson PlayerListAnswer (list player)
+              }
+
+          )
+        Err httpErr ->
+          ( { model | status = stringHttpError httpErr }
+          , Cmd.none
+          )
+    LogOutAnswer result ->
+      case result of
+        Ok newId ->
+          ( { model | status = NotLoggedIn , id = Nothing }
+          , Cmd.none 
+          )
+        Err httpErr ->
+          ( { model | status = stringHttpError httpErr }
+          , Cmd.none
+          )
+    PlayerListAnswer result ->
+      case result of
+        Ok newPlayers ->
+          ( { model | players = newPlayers }
           , Cmd.none
           )
         Err httpErr ->
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
-
-loginDecoder : Decoder String
-loginDecoder = field "name" string
 
 stringHttpError : Http.Error -> Status
 stringHttpError err =
@@ -129,7 +181,13 @@ view model =
       text "Logging in..."
 
     LoggedIn ->
-      pre [] [ text "LOGGED IN" ]
+        div []
+        [ ul []
+            (List.map (\p -> li [] [ text p.name ]) model.players)
+        , button [ onClick LogOut ] [ text "Log out" ]
+        ]
 
     Error msg ->
-      text ("oh no, error: " ++ msg)
+      div []
+      [ text ("oh no, error: " ++ msg)
+      ]
