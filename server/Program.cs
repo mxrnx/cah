@@ -16,9 +16,9 @@ builder.Services.AddSingleton<MemoryService>();
 
 var app = builder.Build();
 
-app.UseCors(builder =>
+app.UseCors(corsPolicyBuilder =>
 {
-    builder
+    corsPolicyBuilder
     .AllowAnyOrigin()
     .AllowAnyMethod()
     .AllowAnyHeader();

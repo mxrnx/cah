@@ -1,3 +1,3 @@
 namespace Server.Models;
 
-public record PlayerDto(Guid Id, string Name);
+public record PlayerDto(Guid Id, string Name, bool Czar);

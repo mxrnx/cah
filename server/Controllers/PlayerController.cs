@@ -36,7 +36,7 @@ public class PlayerController : ControllerBase
         _context.Players.Add(newPlayer);
         await _context.SaveChangesAsync();
         
-        return Ok(newPlayer.ToDto());
+        return Ok(newPlayer.ToDto(_memoryService.GetCzar() == newPlayer.Id));
     }
     
     [HttpDelete]
@@ -56,5 +56,5 @@ public class PlayerController : ControllerBase
     
     [HttpGet]
     public async Task<ActionResult<List<PlayerDto>>> Get() =>
-        await _context.Players.Select(p => p.ToDto()).ToListAsync();
+        await _context.Players.Select(p => p.ToDto(_memoryService.GetCzar() == p.Id)).ToListAsync();
 }

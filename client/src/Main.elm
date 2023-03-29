@@ -1,18 +1,17 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, text, pre, div, input, button, ul, li)
-import Html.Attributes exposing (placeholder, value)
-import Html.Events exposing (onInput, onClick)
-import Http exposing (jsonBody, Error(..))
+import Html
+import Html.Attributes
+import Html.Events
+import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, field, string, list, map2)
-import Time exposing (every)
+import Json.Decode exposing (Decoder, field, string, list, bool, map3)
+import Time
 import UUID exposing (UUID)
 
 
 -- MAIN
-
 
 main =
   Browser.element
@@ -29,6 +28,7 @@ main =
 type alias Player =
     { id     : UUID
     , name   : String
+    , czar   : Bool
     }
 
 type Status
@@ -36,6 +36,7 @@ type Status
   | NotLoggedIn
   | LoggingIn
   | LoggedIn
+  | RoundPickCards
 
 type alias Model =
     { userName : String       -- username of the current player
@@ -61,26 +62,27 @@ init _ =
 
 -- DECODERS
 
-
-
 player : Decoder Player
 player =
-    map2 Player
+    map3 Player
         (field "id" UUID.jsonDecoder)
         (field "name" string)
+        (field "czar" bool)
+
 
 
 -- UPDATE
-
 
 type Msg
   = LogInAnswer (Result Http.Error Player)
   | LogOutAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
   | CzarAnswer (Result Http.Error UUID)
+  | DealCardsAnswer (Result Http.Error ())
   | EditName String
   | LogIn
   | LogOut
+  | StartGame
   | Tick Time.Posix
 
 
@@ -114,6 +116,14 @@ update msg model =
                     , expect = Http.expectWhatever LogOutAnswer
                     }
                 )
+    StartGame ->
+        ( { model | status = RoundPickCards }
+        , Http.post
+            { body = jsonBody (Encode.null)
+            , url = "https://localhost:5001/Game"
+            , expect = Http.expectWhatever DealCardsAnswer
+            }
+        )
     LogInAnswer result ->
       case result of
         Ok newPlayer ->
@@ -130,7 +140,7 @@ update msg model =
           )
     LogOutAnswer result ->
       case result of
-        Ok newId ->
+        Ok _ ->
           ( { model | status = NotLoggedIn , id = Nothing }
           , Cmd.none 
           )
@@ -158,19 +168,13 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
+    DealCardsAnswer _ -> (model, Cmd.none) -- TODO
     Tick _ ->
       ( model
-      , Cmd.batch
-        [ Http.get
-            { url = "https://localhost:5001/Player"
-            ,  expect = Http.expectJson PlayerListAnswer (list player)
-            }
-        , Http.get
-            { url = "https://localhost:5001/Czar"
-            ,  expect = Http.expectJson CzarAnswer UUID.jsonDecoder
-            }
-
-        ]
+      , Http.get
+          { url = "https://localhost:5001/Player"
+          ,  expect = Http.expectJson PlayerListAnswer (list player)
+          }
       )
 
 
@@ -197,27 +201,37 @@ subscriptions model =
 
 -- VIEW
 
-
-view : Model -> Html Msg
+view : Model -> Html.Html Msg
 view model =
   case model.status of
     NotLoggedIn ->
-        div []
-        [ input [ placeholder "Nickname", value model.userName, onInput EditName ] []
-        , button [ onClick LogIn ] [ text "Log in" ]
+        Html.div []
+        [ Html.input [ Html.Attributes.placeholder "Nickname", Html.Attributes.value model.userName, Html.Events.onInput EditName ] []
+        , Html.button [ Html.Events.onClick LogIn ] [ Html.text "Log in" ]
         ]
 
     LoggingIn ->
-      text "Logging in..."
+      Html.text "Logging in..."
 
     LoggedIn ->
-        div []
-        [ ul []
-            (List.map (\p -> li [] [ text p.name ]) model.players)
-        , button [ onClick LogOut ] [ text "Log out" ]
+        Html.div []
+        [ Html.ul []
+            (List.map (\p -> Html.li [] [ formatPlayerName p ]) model.players)
+        , Html.button [ Html.Events.onClick LogOut ] [ Html.text "Log out" ]
+        , if List.length model.players >= 3
+          then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
+          else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
         ]
 
     Error msg ->
-      div []
-      [ text ("oh no, error: " ++ msg)
+      Html.div []
+      [ Html.text ("oh no, error: " ++ msg)
       ]
+
+    RoundPickCards -> Html.text "to do" -- TODO
+
+
+formatPlayerName : Player -> Html.Html Msg
+formatPlayerName p = if p.czar
+                     then Html.b [] [ Html.text p.name ]
+                     else Html.text p.name

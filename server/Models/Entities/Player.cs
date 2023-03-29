@@ -2,5 +2,5 @@ namespace Server.Models.Entities;
 
 public record Player(Guid Id, string Name)
 {
-    public PlayerDto ToDto() => new(Id, Name);
+    public PlayerDto ToDto(bool isCzar) => new(Id, Name, isCzar);
 }
