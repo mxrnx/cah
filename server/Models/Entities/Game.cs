@@ -1,3 +1,3 @@
 namespace Server.Models.Entities;
 
-public record Game(int totalRounds, int currentRound);
+public record Game(int necessaryWins);

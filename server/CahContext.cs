@@ -9,6 +9,5 @@ public class CahContext : DbContext
     {
     }
 
-    public Guid CurrentCzar = Guid.Empty;
     public DbSet<Player> Players { get; set; } = null!;
 }

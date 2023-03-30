@@ -119,7 +119,7 @@ update msg model =
     StartGame ->
         ( { model | status = RoundPickCards }
         , Http.post
-            { body = jsonBody (Encode.null)
+            { body = jsonBody (Encode.int 5) -- TODO: make number of necessary wins configurable
             , url = "https://localhost:5001/Game"
             , expect = Http.expectWhatever DealCardsAnswer
             }

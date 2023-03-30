@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Server.Models;
+using Server.Models.Dtos;
 using Server.Models.Entities;
 using Server.Services;
 
@@ -11,18 +12,22 @@ namespace Server.Controllers;
 public class PlayerController : ControllerBase
 {
     private readonly CahContext _context;
-    private readonly MemoryService _memoryService;
+    private readonly GameService _gameService;
+    private readonly SessionService _sessionService;
 
-    public PlayerController(CahContext context, MemoryService memoryService)
+    public PlayerController(CahContext context, GameService gameService, SessionService sessionService)
     {
         _context = context;
-        _memoryService = memoryService;
+        _gameService = gameService;
+        _sessionService = sessionService;
     }
 
     [HttpPost]
     public async Task<ActionResult<PlayerDto>> Post([FromBody] string name)
     {
-        // TODO: check if player is not yet logged in/has no session
+        if (_sessionService.GetCurrentPlayerId() is not null)
+            return BadRequest("Current connection already tied to a session.");
+        
         if (name.Length is < 1 or > 20)
             return BadRequest("Name too long or short.");
         
@@ -31,12 +36,14 @@ public class PlayerController : ControllerBase
 
         var newPlayer = new Player(Guid.NewGuid(), name);
         if (!await _context.Players.AnyAsync())
-            _memoryService.SetCzar(newPlayer.Id);
+            _gameService.SetCzar(newPlayer.Id);
 
         _context.Players.Add(newPlayer);
         await _context.SaveChangesAsync();
         
-        return Ok(newPlayer.ToDto(_memoryService.GetCzar() == newPlayer.Id));
+        _sessionService.CreateSession(newPlayer.Id);
+        
+        return Ok(newPlayer.ToDto(_gameService.GetCzar() == newPlayer.Id));
     }
     
     [HttpDelete]
@@ -56,5 +63,5 @@ public class PlayerController : ControllerBase
     
     [HttpGet]
     public async Task<ActionResult<List<PlayerDto>>> Get() =>
-        await _context.Players.Select(p => p.ToDto(_memoryService.GetCzar() == p.Id)).ToListAsync();
+        await _context.Players.Select(p => p.ToDto(_gameService.GetCzar() == p.Id)).ToListAsync();
 }

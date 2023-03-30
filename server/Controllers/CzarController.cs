@@ -7,15 +7,15 @@ namespace Server.Controllers;
 [Route("[controller]")]
 public class CzarController : ControllerBase
 {
-    private readonly MemoryService _memoryService;
+    private readonly GameService _gameService;
 
-    public CzarController(MemoryService memoryService)
+    public CzarController(GameService gameService)
     {
-        _memoryService = memoryService;
+        _gameService = gameService;
     }
 
     [HttpGet]
     public ActionResult<Guid> Get() =>
-        _memoryService.GetCzar();
+        _gameService.GetCzar();
 
 }

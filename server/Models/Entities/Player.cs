@@ -1,3 +1,5 @@
+using Server.Models.Dtos;
+
 namespace Server.Models.Entities;
 
 public record Player(Guid Id, string Name)
