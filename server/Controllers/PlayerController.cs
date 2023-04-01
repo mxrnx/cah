@@ -38,9 +38,11 @@ public class PlayerController : ControllerBase
         if (!await _context.Players.AnyAsync())
             _gameService.SetCzar(newPlayer.Id);
 
+        // Add player to database
         _context.Players.Add(newPlayer);
         await _context.SaveChangesAsync();
         
+        // Save player Id in a new session
         _sessionService.CreateSession(newPlayer.Id);
         
         return Ok(newPlayer.ToDto(_gameService.GetCzar() == newPlayer.Id));
