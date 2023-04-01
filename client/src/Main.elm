@@ -7,6 +7,7 @@ import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
 import Json.Decode exposing (Decoder, field, string, list, bool, map3)
+import List.Extra
 import Time
 import UUID exposing (UUID)
 
@@ -43,7 +44,6 @@ type alias Model =
     , id       : Maybe UUID   -- id of the current player
     , status   : Status       -- status object
     , players  : List Player  -- list of all players
-    , czar     : Maybe UUID   -- UUID of the current card czar
     }
 
 
@@ -53,10 +53,13 @@ init _ =
     , id       = Nothing
     , status   = NotLoggedIn
     , players  = []
-    , czar     = Nothing
     }
   , Cmd.none
   )
+
+currentPlayer : Model -> Maybe Player
+currentPlayer model =
+    List.Extra.find (\p -> Just p.id == model.id) model.players
 
 
 
@@ -77,7 +80,6 @@ type Msg
   = LogInAnswer (Result Http.Error Player)
   | LogOutAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
-  | CzarAnswer (Result Http.Error UUID)
   | DealCardsAnswer (Result Http.Error ())
   | EditName String
   | LogIn
@@ -158,16 +160,6 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
-    CzarAnswer result ->
-      case result of
-        Ok czarId ->
-          ( { model | czar = Just czarId }
-          , Cmd.none 
-          )
-        Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
-          , Cmd.none
-          )
     DealCardsAnswer _ -> (model, Cmd.none) -- TODO
     Tick _ ->
       ( model
@@ -218,9 +210,15 @@ view model =
         [ Html.ul []
             (List.map (\p -> Html.li [] [ formatPlayerName p ]) model.players)
         , Html.button [ Html.Events.onClick LogOut ] [ Html.text "Log out" ]
-        , if List.length model.players >= 3
-          then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
-          else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
+        , case currentPlayer model of
+            Nothing -> Html.text "Something went terribly wrong" -- TODO
+            Just p ->
+                if p.czar
+                then
+                  if List.length model.players >= 3
+                  then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
+                  else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
+                else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
         ]
 
     Error msg ->
