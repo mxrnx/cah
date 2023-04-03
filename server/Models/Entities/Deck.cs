@@ -1,15 +1,15 @@
 namespace Server.Models.Entities;
 
-public record Deck
+public class Deck
 {
-    private string Name;
-    private List<BlackCard> _blackCards;
-    private List<WhiteCard> _whiteCards;
-    
-    public Deck(string name, List<BlackCard> blackCards, List<WhiteCard> whiteCards)
+    public Deck(Guid id, string name)
     {
+        Id = id;
         Name = name;
-        _blackCards = blackCards;
-        _whiteCards = whiteCards;
     }
+    
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+    public ICollection<PromptCard>? PromptCards { get; set; }
+    public ICollection<AnswerCard>? AnswerCards { get; set; }
 }

@@ -1,11 +1,16 @@
 namespace Server.Models.Entities;
 
-public abstract record Card
+public class Card
 {
-    private string Text;
-
-    protected Card(string text)
+    protected Card()
     {
-        Text = text;
+        Id = Guid.NewGuid();
+        Text = string.Empty;
     }
+    
+    public Guid Id { get; set; }
+    public string Text { get; set; }
+    public Guid? DeckId { get; set; }
+    public Deck? Deck { get; set; }
+    
 }
