@@ -6,10 +6,11 @@ import Html.Attributes
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, field, string, list, bool, map3)
+import Json.Decode exposing (Decoder, bool, field, list, map2, map3, string)
 import List.Extra
 import Time
 import UUID exposing (UUID)
+
 
 
 -- MAIN
@@ -32,6 +33,11 @@ type alias Player =
     , czar   : Bool
     }
 
+type alias AnswerCard =
+    { id    : UUID
+    , text  : String
+    }
+
 type Status
   = Error String
   | NotLoggedIn
@@ -40,10 +46,11 @@ type Status
   | RoundPickCards
 
 type alias Model =
-    { userName : String       -- username of the current player
-    , id       : Maybe UUID   -- id of the current player
-    , status   : Status       -- status object
-    , players  : List Player  -- list of all players
+    { userName : String            -- username of the current player
+    , id       : Maybe UUID        -- id of the current player
+    , status   : Status            -- status object
+    , players  : List Player       -- list of all players
+    , hand     : List AnswerCard   -- this player's hand of answer cards
     }
 
 
@@ -53,6 +60,7 @@ init _ =
     , id       = Nothing
     , status   = NotLoggedIn
     , players  = []
+    , hand     = []
     }
   , Cmd.none
   )
@@ -72,20 +80,26 @@ player =
         (field "name" string)
         (field "czar" bool)
 
+answerCard : Decoder AnswerCard
+answerCard =
+    map2 AnswerCard
+        (field "id" UUID.jsonDecoder)
+        (field "text" string)
 
 
 -- UPDATE
 
 type Msg
   = LogInAnswer (Result Http.Error Player)
-  | LogOutAnswer (Result Http.Error ())
+  | NoContentAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
-  | DealCardsAnswer (Result Http.Error ())
+  | GameAnswer (Result Http.Error (List AnswerCard))
   | EditName String
   | LogIn
   | LogOut
   | StartGame
-  | Tick Time.Posix
+  | WaitingTick Time.Posix
+  | GameTick Time.Posix
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -115,7 +129,7 @@ update msg model =
                     , tracker = Nothing
                     , body = jsonBody (Encode.string (UUID.toString id))
                     , url = "https://localhost:5001/Player"
-                    , expect = Http.expectWhatever LogOutAnswer
+                    , expect = Http.expectWhatever NoContentAnswer
                     }
                 )
     StartGame ->
@@ -123,7 +137,7 @@ update msg model =
         , Http.post
             { body = jsonBody (Encode.int 5) -- TODO: make number of necessary wins configurable
             , url = "https://localhost:5001/Game"
-            , expect = Http.expectWhatever DealCardsAnswer
+            , expect = Http.expectWhatever NoContentAnswer
             }
         )
     LogInAnswer result ->
@@ -140,7 +154,7 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
-    LogOutAnswer result ->
+    NoContentAnswer result ->
       case result of
         Ok _ ->
           ( { model | status = NotLoggedIn , id = Nothing }
@@ -160,13 +174,35 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
-    DealCardsAnswer _ -> (model, Cmd.none) -- TODO
-    Tick _ ->
+    GameAnswer result ->
+      case result of
+        Ok newHand ->
+          ( { model | hand = newHand }
+          , Cmd.none
+          )
+        Err httpErr ->
+          ( { model | status = stringHttpError httpErr }
+          , Cmd.none
+          )
+    WaitingTick _ ->
       ( model
       , Http.get
+        { url = "https://localhost:5001/Player"
+        ,  expect = Http.expectJson PlayerListAnswer (list player)
+        }
+      )
+    GameTick _ ->
+      ( model
+      , Cmd.batch
+        [ Http.get
           { url = "https://localhost:5001/Player"
           ,  expect = Http.expectJson PlayerListAnswer (list player)
           }
+        , Http.get
+          { url = "https://localhost:5001/Game"
+          ,  expect = Http.expectJson GameAnswer (list answerCard)
+          }
+        ]
       )
 
 
@@ -187,7 +223,10 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
   if model.status == NotLoggedIn || model.status == LoggingIn
   then Sub.none
-  else Time.every 1000 Tick
+  else
+    if model.status == RoundPickCards
+    then Time.every 1000 GameTick
+    else Time.every 1000 WaitingTick
 
 
 
@@ -226,7 +265,7 @@ view model =
       [ Html.text ("oh no, error: " ++ msg)
       ]
 
-    RoundPickCards -> Html.text "to do" -- TODO
+    RoundPickCards -> Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.hand)
 
 
 formatPlayerName : Player -> Html.Html Msg
