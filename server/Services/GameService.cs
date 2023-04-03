@@ -10,7 +10,6 @@ namespace Server.Services;
 /// </summary>
 public class GameService
 {
-    private readonly CahContext _context;
     private readonly MemoryCache _cache;
     private Deck[] _decksInPlay = Array.Empty<Deck>();
     private DrawPile<AnswerCard>? _answerCardsDrawPile;
@@ -19,9 +18,8 @@ public class GameService
     private const string KEY_CZAR = "czar";
     private const string KEY_WINS = "wins";
     
-    public GameService(CahContext context)
+    public GameService()
     {
-        _context = context;
         _cache = new MemoryCache(new MemoryCacheOptions());
     }
     
