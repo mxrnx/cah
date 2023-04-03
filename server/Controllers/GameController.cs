@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Server.Enums;
+using Server.Extensions;
 using Server.Models.Dtos;
 using Server.Services;
 
@@ -13,6 +14,8 @@ public class GameController : ControllerBase
     private readonly GameService _gameService;
     private readonly SessionService _sessionService;
 
+    private const int CARDS_IN_FULL_HAND = 8;
+
     public GameController(CahContext context, GameService gameService, SessionService sessionService)
     {
         _context = context;
@@ -21,7 +24,7 @@ public class GameController : ControllerBase
     }
     
     [HttpPost]
-    public async Task<ActionResult<HandDto>> Post([FromBody] int necessaryWins)
+    public ActionResult Post([FromBody] int necessaryWins)
     {
         if (_gameService.GetGameState() != EGameState.NotStarted)
             return BadRequest("Game has already started.");
@@ -34,15 +37,23 @@ public class GameController : ControllerBase
             return BadRequest("Number of necessary wins must be greater than 1 and less than 20.");
 
         if (currentPlayerId != _gameService.GetCzar())
-            return Unauthorized("Game has already started.");
+            return Unauthorized("You are not the Card Czar.");
         
-        _gameService.SetNecessaryWins(necessaryWins);
+        _gameService.SetupGame(necessaryWins, _context.Decks); // TODO: make it possible to select decks
 
         foreach (var player in _context.Players)
-        {
-            // player. // TODO: deal cards
-        }
-        
-        return Ok(new HandDto()); // TODO: retrieve current player's hand
+            player.CardsInHand.AddMany(_gameService.DrawAnswerCards(CARDS_IN_FULL_HAND));
+
+        return NoContent();
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<GameDto>> Get()
+    {
+        var player = await _context.Players.FindAsync(_sessionService.GetCurrentPlayerId());
+        if (player is null)
+            return Unauthorized("Player not logged in.");
+
+        return Ok(new GameDto(player.CardsInHand));
     }
 }

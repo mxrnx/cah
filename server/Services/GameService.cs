@@ -25,13 +25,18 @@ public class GameService
         _cache = new MemoryCache(new MemoryCacheOptions());
     }
     
+    /// <summary>
+    /// Initializes a new game.
+    /// </summary>
+    /// <param name="necessaryWins">The amount of rounds won a player needs to win the game.</param>
+    /// <param name="decks">The decks that will be used in the game.</param>
     public void SetupGame(int necessaryWins, IEnumerable<Deck> decks)
     {
+        SetGameState(EGameState.Started);
         _cache.Set(KEY_WINS, necessaryWins);
         _decksInPlay = decks.ToArray();
         _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards ?? Array.Empty<AnswerCard>()));
         _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards ?? Array.Empty<PromptCard>()));
-        SetGameState(EGameState.Started);
     }
 
     public IEnumerable<AnswerCard> DrawAnswerCards(int count) =>
@@ -53,9 +58,15 @@ public class GameService
             ? gameState
             : EGameState.NotStarted;
     
+    /// <summary>
+    /// Sets the Guid of the current Card Czar.
+    /// </summary>
     public void SetCzar(Guid id) =>
         _cache.Set(KEY_CZAR, id);
 
+    /// <summary>
+    /// Returns the Guid of the current Card Czar.
+    /// </summary>
     public Guid GetCzar() =>
         _cache.TryGetValue<Guid>(KEY_CZAR, out var czar)
             ? czar

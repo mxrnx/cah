@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Server.Models;
+using Server.Enums;
 using Server.Models.Dtos;
 using Server.Models.Entities;
 using Server.Services;
@@ -27,6 +27,9 @@ public class PlayerController : ControllerBase
     {
         if (_sessionService.GetCurrentPlayerId() is not null)
             return BadRequest("Current connection already tied to a session.");
+
+        if (_gameService.GetGameState() == EGameState.Started)
+            return BadRequest("Cannot join a game that has already started."); // TODO: consider making this possible
         
         if (name.Length is < 1 or > 20)
             return BadRequest("Name too long or short.");
@@ -49,7 +52,7 @@ public class PlayerController : ControllerBase
     }
     
     [HttpDelete]
-    public async Task<ActionResult<Guid>> Delete([FromBody] Guid id)
+    public async Task<ActionResult> Delete([FromBody] Guid id)
     {
         // TODO: check if player is not yet logged in/has no session
         var player = await _context.Players.FindAsync(id);
