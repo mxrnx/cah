@@ -6,7 +6,7 @@ namespace Server.Models;
 public class DrawPile<TCard> where TCard : Card
 {
     private readonly TCard[] _fullPile;
-    private Queue<TCard> _currentPile = new Queue<TCard>();
+    private Queue<TCard> _currentPile = new();
 
     public DrawPile(IEnumerable<TCard> allCards)
     {

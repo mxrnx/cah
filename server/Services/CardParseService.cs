@@ -54,7 +54,7 @@ public class CardParseService
     /// </summary>
     /// <returns>List of DirectoryInfo objects for the decks under the decks directory</returns>
     /// <exception cref="InvalidOperationException">When the directory is not found</exception>
-    private static DirectoryInfo[] GetDeckDirectories()
+    private static IEnumerable<DirectoryInfo> GetDeckDirectories()
     {
         
         var cardsDirectoryPath = Directory.GetCurrentDirectory() + "/../decks/";
