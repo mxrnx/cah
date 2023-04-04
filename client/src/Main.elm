@@ -6,7 +6,7 @@ import Html.Attributes exposing (class, style)
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, andThen, bool, field, list, map, map2, map3, maybe, string)
+import Json.Decode exposing (Decoder, andThen, bool, field, int, list, map2, map3, maybe, string)
 import List.Extra
 import Time
 import UUID exposing (UUID)
@@ -35,12 +35,20 @@ type alias Player =
   }
 
 type alias GameState =
-  { handCards : List AnswerCard
+  { handCards  : List AnswerCard
+  , gamePhase  : GamePhase
+  , promptCard : PromptCard
   }
 
 type alias AnswerCard =
   { id        : UUID
   , text      : String
+  }
+
+type alias PromptCard =
+  { id         : UUID
+  , text       : String
+  , fieldCount : Int
   }
 
 type LoginStatus
@@ -63,6 +71,7 @@ type alias Model =
   , players      : List Player       -- list of all players
   , handCards    : List AnswerCard   -- this player's hand of answer cards
   , selectedCard : Maybe UUID        -- the currently selected card, if any
+  , promptCard   : Maybe PromptCard
   }
 
 
@@ -75,6 +84,7 @@ init _ =
     , players      = []
     , handCards    = []
     , selectedCard = Nothing
+    , promptCard   = Nothing
     }
   , Http.get
     { url = url [ "Player", "Me"]
@@ -98,14 +108,23 @@ player =
     (field "czar" bool)
 
 gameState : Decoder GameState
-gameState = map GameState
+gameState = map3 GameState
               (field "handCards" (list answerCard))
+              (field "gamePhase" gamePhase)
+              (field "promptCard" promptCard)
 
 answerCard : Decoder AnswerCard
 answerCard =
     map2 AnswerCard
         (field "id" UUID.jsonDecoder)
         (field "text" string)
+
+promptCard : Decoder PromptCard
+promptCard =
+    map3 PromptCard
+        (field "id" UUID.jsonDecoder)
+        (field "text" string)
+        (field "fieldCount" int)
 
 gamePhase : Decoder GamePhase
 gamePhase =
@@ -136,6 +155,7 @@ type Msg
   | LogOut
   | StartGame
   | SelectCard UUID
+  | PlayCard
 
   | WaitingTick Time.Posix
   | GameTick Time.Posix
@@ -186,6 +206,7 @@ update msg model =
           , Cmd.none
           )
         _ -> ( model, Cmd.none )
+    PlayCard -> (model, Cmd.none) -- TODO
     PlayerInitAnswer result ->
       case result of
         Ok maybePlayer ->
@@ -230,7 +251,7 @@ update msg model =
     GameAnswer result ->
       case result of
         Ok state ->
-          ( { model | handCards = state.handCards }
+          ( { model | handCards = state.handCards, promptCard = Just state.promptCard, gamePhase = state.gamePhase }
           , Cmd.none
           )
         Err httpErr ->
@@ -327,7 +348,8 @@ viewLayout : Model -> Html.Html Msg -> Html.Html Msg
 viewLayout model content = Html.div [ class "columns" ]
                              [ Html.div [ class "column is-four-fifths" ] [ content ]
                              , Html.div [ class "column" ]
-                                 [ Html.aside [ class "menu"]
+                                 [ formatPlayButton model.gamePhase model.selectedCard
+                                 , Html.aside [ class "menu"]
                                    [ Html.ul [ class "menu-list" ]
                                        (Html.p [ class "menu-label" ] [ Html.text "Players" ] ::
                                        (List.map (\p -> Html.li [] [ Html.a [] [ formatPlayerName p ] ]) model.players))
@@ -351,12 +373,38 @@ viewContent model =
               else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
 
     PickingAnswers -> Html.div []
-                        [ Html.div [ class "columns is-multiline is-8"]
-                        (List.map (\card -> formatCard card (Just card.id == model.selectedCard)) model.handCards)
-                        , Html.text "Picking cards"
+                        [ formatPrompt model.promptCard
+                        , Html.div [ class "columns is-multiline is-8"]
+                            (List.map (\card -> formatCard card (Just card.id == model.selectedCard)) model.handCards)
                         ]
 
     _ -> Html.text "Not yet implemented" -- TODO
+
+formatPlayButton : GamePhase -> Maybe UUID -> Html.Html Msg
+formatPlayButton phase selectedCard =
+  let
+    active =
+      case phase of
+        PickingAnswers -> selectedCard /= Nothing
+        _ -> False
+  in
+    Html.div [class "column" ]
+      [ Html.button
+          ([ class "button mb-4 is-primary is-responsive"
+          , Html.Attributes.disabled (not active)
+          ] ++ if active
+               then [Html.Events.onClick PlayCard]
+               else [] )
+          [ Html.text "Play this card!" ] ]
+
+formatPrompt : Maybe PromptCard -> Html.Html Msg
+formatPrompt maybeCard = case maybeCard of
+  Nothing -> Html.div [] []
+  Just card -> Html.div [ class "columns " ]
+                 [ Html.div [ class "column is-full" ]
+                     [ Html.div
+                         [ class "box has-background-dark has-text-light" ]
+                         [ Html.p [ class "is-size-3" ] [ Html.text card.text ] ] ] ]
 
 formatCard : AnswerCard -> Bool -> Html.Html Msg
 formatCard card isSelected = Html.div [ class "column is-one-quarter" ]
