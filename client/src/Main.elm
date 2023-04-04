@@ -10,6 +10,7 @@ import Json.Decode exposing (Decoder, bool, field, list, map, map2, map3, maybe,
 import List.Extra
 import Time
 import UUID exposing (UUID)
+import Url.Builder exposing (crossOrigin)
 
 
 
@@ -67,7 +68,7 @@ init _ =
     , handCards     = []
     }
   , Http.get
-    { url = "https://localhost:5001/Player/Me"
+    { url = url [ "Player", "Me"]
     , expect = Http.expectJson PlayerInitAnswer (maybe player)
     }
   )
@@ -125,7 +126,7 @@ update msg model =
         ( { model | status = LoggingIn }
         , Http.post
             { body = jsonBody (Encode.string model.userName)
-            , url = "https://localhost:5001/Player"
+            , url = url [ "Player" ]
             , expect = Http.expectJson LogInAnswer player
             }
         )
@@ -140,7 +141,7 @@ update msg model =
                     , timeout = Nothing
                     , tracker = Nothing
                     , body = jsonBody (Encode.string (UUID.toString id))
-                    , url = "https://localhost:5001/Player"
+                    , url = url [ "Player" ]
                     , expect = Http.expectWhatever NoContentAnswer
                     }
                 )
@@ -148,7 +149,7 @@ update msg model =
         ( { model | status = RoundPickCards }
         , Http.post
             { body = jsonBody (Encode.int 5) -- TODO: make number of necessary wins configurable
-            , url = "https://localhost:5001/Game"
+            , url = url [ "Game" ]
             , expect = Http.expectWhatever NoContentAnswer
             }
         )
@@ -160,7 +161,7 @@ update msg model =
               Just existingPlayer ->
                 ( { model | status = LoggedIn, id = Just existingPlayer.id }
                 , Http.get
-                  { url = "https://localhost:5001/Player"
+                  { url = url [ "Player" ]
                   , expect = Http.expectJson PlayerListAnswer (list player)
                   }
                 )
@@ -173,7 +174,7 @@ update msg model =
         Ok newPlayer ->
           ( { model | status = LoggedIn , id = Just newPlayer.id }
           , Http.get
-              { url = "https://localhost:5001/Player"
+              { url = url [ "Player" ]
               , expect = Http.expectJson PlayerListAnswer (list player)
               }
 
@@ -206,7 +207,7 @@ update msg model =
     WaitingTick _ ->
       ( model
       , Http.get
-        { url = "https://localhost:5001/Player"
+        { url = url [ "Player" ]
         ,  expect = Http.expectJson PlayerListAnswer (list player)
         }
       )
@@ -214,16 +215,15 @@ update msg model =
       ( model
       , Cmd.batch
         [ Http.get
-          { url = "https://localhost:5001/Player"
+          { url = url [ "Player" ]
           ,  expect = Http.expectJson PlayerListAnswer (list player)
           }
         , Http.get
-          { url = "https://localhost:5001/Game"
+          { url = url [ "Game" ]
           ,  expect = Http.expectJson GameAnswer gameState
           }
         ]
       )
-
 
 stringHttpError : Http.Error -> Status
 stringHttpError err =
@@ -233,7 +233,11 @@ stringHttpError err =
         NetworkError -> Error "Network error"
         BadStatus stat -> Error ("Status " ++ String.fromInt stat)
         BadBody str -> Error ("Bad body: " ++ str)
-        
+
+url : List String -> String
+url path = crossOrigin "https://localhost:5001" path []
+
+
 
 -- SUBSCRIPTIONS
 
