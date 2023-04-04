@@ -35,12 +35,14 @@ public sealed class GameService : IDisposable
     /// <param name="decks">The decks that will be used in the game.</param>
     public void SetupGame(int necessaryWins, IEnumerable<Deck> decks)
     {
-        SetGameState(EGamePhase.PickingAnswers);
         SetNecessaryWins(necessaryWins);
-        DrawPromptCard();
+        
         _decksInPlay = decks.ToArray();
         _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards));
         _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards));
+        
+        DrawPromptCard();
+        SetGameState(EGamePhase.PickingAnswers);
     }
 
     public IEnumerable<AnswerCard> DrawAnswerCards(int count) =>
