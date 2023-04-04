@@ -6,5 +6,7 @@ namespace Server.Enums;
 public enum EGamePhase
 {
     WaitingToStart,
-    PickingAnswers
+    PickingAnswers,
+    ShowingAnswers,
+    PickingWinner
 }
