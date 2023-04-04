@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Html
-import Html.Attributes exposing (class)
+import Html.Attributes exposing (class, style)
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
@@ -341,12 +341,16 @@ viewContent model =
               else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
 
     PickingAnswers -> Html.div []
-                        [ Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.handCards)
+                        [ Html.div [ class "columns is-multiline is-8"] (List.map (\card -> formatCard card) model.handCards)
                         , Html.text "Picking cards"
                         ]
 
     _ -> Html.text "Not yet implemented" -- TODO
 
+formatCard : AnswerCard -> Html.Html Msg
+formatCard card = Html.div [ class "column is-one-quarter" ]
+                    [ Html.div [ Html.Attributes.id (UUID.toString card.id), class "box is-clickable", style "height" "20rem" ]
+                        [ Html.p [ class "is-size-3" ] [ Html.text card.text ] ] ]
 
 formatPlayerName : Player -> Html.Html Msg
 formatPlayerName p = if p.czar
