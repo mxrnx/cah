@@ -31,7 +31,12 @@ app.UseCors(corsPolicyBuilder =>
     .AllowAnyHeader();
 });
 
-Console.WriteLine(app.Environment.IsDevelopment());
+// Ensure the database is created before we start accessing it. Necessary when using in memory stores.
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<CahContext>();
+    context.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 //if (app.Environment.IsDevelopment())

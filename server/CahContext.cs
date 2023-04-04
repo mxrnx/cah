@@ -36,7 +36,7 @@ public class CahContext : DbContext
 
         modelBuilder.Entity<PromptCard>()
             .HasData(_cardParseService.ParsePromptCards(decks));
-        modelBuilder.Entity<PromptCard>()
+        modelBuilder.Entity<AnswerCard>()
             .HasData(_cardParseService.ParseAnswerCards(decks));
     }
 

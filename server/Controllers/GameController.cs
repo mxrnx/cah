@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Server.Enums;
 using Server.Extensions;
 using Server.Models.Dtos;
@@ -24,7 +25,7 @@ public class GameController : ControllerBase
     }
     
     [HttpPost]
-    public ActionResult Post([FromBody] int necessaryWins)
+    public async Task<ActionResult> Post([FromBody] int necessaryWins)
     {
         if (_gameService.GetGameState() != EGameState.NotStarted)
             return BadRequest("Game has already started.");
@@ -39,10 +40,13 @@ public class GameController : ControllerBase
         if (necessaryWins is < 1 or > 20)
             return BadRequest("Number of necessary wins must be greater than 1 and less than 20.");
 
-        _gameService.SetupGame(necessaryWins, _context.Decks); // TODO: make it possible to select decks
+        // TODO: make it possible to select decks
+        _gameService.SetupGame(necessaryWins, _context.Decks.Include(x => x.AnswerCards).Include(x => x.PromptCards));
 
         foreach (var player in _context.Players)
             player.CardsInHand.AddMany(_gameService.DrawAnswerCards(CARDS_IN_FULL_HAND));
+
+        await _context.SaveChangesAsync();
 
         return NoContent();
     }
@@ -50,7 +54,8 @@ public class GameController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<GameDto>> Get()
     {
-        var player = await _context.Players.FindAsync(_sessionService.GetCurrentPlayerId());
+        var player = await _context.Players.Include(x => x.CardsInHand)
+            .SingleOrDefaultAsync(x => x.Id == _sessionService.GetCurrentPlayerId());
         if (player is null)
             return Unauthorized("Player not logged in.");
 

@@ -10,6 +10,6 @@ public class Deck
     
     public Guid Id { get; set; }
     public string Name { get; set; }
-    public ICollection<PromptCard>? PromptCards { get; set; }
-    public ICollection<AnswerCard>? AnswerCards { get; set; }
+    public ICollection<PromptCard> PromptCards { get; set; } = null!;
+    public ICollection<AnswerCard> AnswerCards { get; set; } = null!;
 }

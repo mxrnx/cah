@@ -33,8 +33,8 @@ public class GameService
         SetGameState(EGameState.Started);
         _cache.Set(KEY_WINS, necessaryWins);
         _decksInPlay = decks.ToArray();
-        _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards ?? Array.Empty<AnswerCard>()));
-        _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards ?? Array.Empty<PromptCard>()));
+        _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards));
+        _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards));
     }
 
     public IEnumerable<AnswerCard> DrawAnswerCards(int count) =>
@@ -47,8 +47,8 @@ public class GameService
         _cache.TryGetValue<int>(KEY_WINS, out var necessaryWins)
             ? necessaryWins
             : throw new InvalidOperationException("Amount of necessary wins not yet set.");
-    
-    public void SetGameState(EGameState gameState) =>
+
+    private void SetGameState(EGameState gameState) =>
         _cache.Set(KEY_WINS, gameState);
 
     public EGameState GetGameState() =>

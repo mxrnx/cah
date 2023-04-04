@@ -6,7 +6,7 @@ import Html.Attributes
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, bool, field, list, map2, map3, maybe, string)
+import Json.Decode exposing (Decoder, bool, field, list, map, map2, map3, maybe, string)
 import List.Extra
 import Time
 import UUID exposing (UUID)
@@ -28,15 +28,19 @@ main =
 -- MODEL
 
 type alias Player =
-    { id     : UUID
-    , name   : String
-    , czar   : Bool
-    }
+  { id        : UUID
+  , name      : String
+  , czar      : Bool
+  }
+
+type alias GameState =
+  { handCards : List AnswerCard
+  }
 
 type alias AnswerCard =
-    { id    : UUID
-    , text  : String
-    }
+  { id        : UUID
+  , text      : String
+  }
 
 type Status
   = Error String
@@ -46,12 +50,12 @@ type Status
   | RoundPickCards
 
 type alias Model =
-    { userName : String            -- username of the current player
-    , id       : Maybe UUID        -- id of the current player
-    , status   : Status            -- status object
-    , players  : List Player       -- list of all players
-    , hand     : List AnswerCard   -- this player's hand of answer cards
-    }
+  { userName  : String            -- username of the current player
+  , id        : Maybe UUID        -- id of the current player
+  , status    : Status            -- status object
+  , players   : List Player       -- list of all players
+  , handCards : List AnswerCard   -- this player's hand of answer cards
+  }
 
 
 init : () -> (Model, Cmd Msg)
@@ -60,7 +64,7 @@ init _ =
     , id       = Nothing
     , status   = NotLoggedIn
     , players  = []
-    , hand     = []
+    , handCards     = []
     }
   , Http.get
     { url = "https://localhost:5001/Player/Me"
@@ -70,7 +74,7 @@ init _ =
 
 currentPlayer : Model -> Maybe Player
 currentPlayer model =
-    List.Extra.find (\p -> Just p.id == model.id) model.players
+  List.Extra.find (\p -> Just p.id == model.id) model.players
 
 
 
@@ -78,10 +82,14 @@ currentPlayer model =
 
 player : Decoder Player
 player =
-    map3 Player
-        (field "id" UUID.jsonDecoder)
-        (field "name" string)
-        (field "czar" bool)
+  map3 Player
+    (field "id" UUID.jsonDecoder)
+    (field "name" string)
+    (field "czar" bool)
+
+gameState : Decoder GameState
+gameState = map GameState
+              (field "handCards" (list answerCard))
 
 answerCard : Decoder AnswerCard
 answerCard =
@@ -97,7 +105,7 @@ type Msg
   | LogInAnswer (Result Http.Error Player)
   | NoContentAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
-  | GameAnswer (Result Http.Error (List AnswerCard))
+  | GameAnswer (Result Http.Error GameState)
   | EditName String
   | LogIn
   | LogOut
@@ -125,7 +133,7 @@ update msg model =
         case model.id of
             Nothing -> ( model , Cmd.none )
             Just id ->
-                ( { model | status = LoggingIn }
+                ( { model | status = NotLoggedIn }
                 , Http.request
                     { method = "DELETE"
                     , headers = []
@@ -174,16 +182,7 @@ update msg model =
           ( { model | status = stringHttpError httpErr }
           , Cmd.none
           )
-    NoContentAnswer result ->
-      case result of
-        Ok _ ->
-          ( { model | status = NotLoggedIn , id = Nothing }
-          , Cmd.none 
-          )
-        Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
-          , Cmd.none
-          )
+    NoContentAnswer _ -> ( model , Cmd.none )
     PlayerListAnswer result ->
       case result of
         Ok newPlayers ->
@@ -196,8 +195,8 @@ update msg model =
           )
     GameAnswer result ->
       case result of
-        Ok newHand ->
-          ( { model | hand = newHand }
+        Ok state ->
+          ( { model | handCards = state.handCards }
           , Cmd.none
           )
         Err httpErr ->
@@ -220,7 +219,7 @@ update msg model =
           }
         , Http.get
           { url = "https://localhost:5001/Game"
-          ,  expect = Http.expectJson GameAnswer (list answerCard)
+          ,  expect = Http.expectJson GameAnswer gameState
           }
         ]
       )
@@ -282,10 +281,13 @@ view model =
 
     Error msg ->
       Html.div []
-      [ Html.text ("oh no, error: " ++ msg)
+      [ Html.text ("Oh no, error: " ++ msg)
       ]
 
-    RoundPickCards -> Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.hand)
+    RoundPickCards -> Html.div []
+                        [ Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.handCards)
+                        , Html.text "Picking cards"
+                        ]
 
 
 formatPlayerName : Player -> Html.Html Msg

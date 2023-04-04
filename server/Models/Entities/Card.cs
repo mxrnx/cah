@@ -10,7 +10,7 @@ public class Card
     
     public Guid Id { get; set; }
     public string Text { get; set; }
-    public Guid? DeckId { get; set; }
-    public Deck? Deck { get; set; }
-    
+    public Guid DeckId { get; set; } = Guid.Empty;
+    public Deck Deck { get; set; } = null!;
+
 }
