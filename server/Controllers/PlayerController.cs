@@ -54,7 +54,6 @@ public class PlayerController : ControllerBase
     [HttpDelete]
     public async Task<ActionResult> Delete([FromBody] Guid id)
     {
-        // TODO: check if player is not yet logged in/has no session
         var player = await _context.Players.FindAsync(id);
 
         if (player is null)
@@ -69,4 +68,24 @@ public class PlayerController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<PlayerDto>>> Get() =>
         await _context.Players.Select(p => p.ToDto(_gameService.GetCzar() == p.Id)).ToListAsync();
+    
+    /// <summary>
+    /// Endpoint called when the client starts up. If the caller was a logged in player before (presumably) refreshing,
+    /// we return that player; if not, we return an empty body.
+    /// </summary>
+    [HttpGet("Me")]
+    public async Task<ActionResult<PlayerDto?>> GetMe()
+    {
+        var id = _sessionService.GetCurrentPlayerId();
+        
+        if (id is null)
+            return Ok("null");
+        
+        var player = await _context.Players.FindAsync(id);
+
+        if (player is null)
+            throw new InvalidOperationException("Player exists according to session state but not in database");
+
+        return Ok(player.ToDto(_gameService.GetCzar() == player.Id));
+    }
 }

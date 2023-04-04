@@ -6,7 +6,7 @@ import Html.Attributes
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, bool, field, list, map2, map3, string)
+import Json.Decode exposing (Decoder, bool, field, list, map2, map3, maybe, string)
 import List.Extra
 import Time
 import UUID exposing (UUID)
@@ -62,7 +62,10 @@ init _ =
     , players  = []
     , hand     = []
     }
-  , Cmd.none
+  , Http.get
+    { url = "https://localhost:5001/Player/Me"
+    , expect = Http.expectJson PlayerInitAnswer (maybe player)
+    }
   )
 
 currentPlayer : Model -> Maybe Player
@@ -90,7 +93,8 @@ answerCard =
 -- UPDATE
 
 type Msg
-  = LogInAnswer (Result Http.Error Player)
+  = PlayerInitAnswer (Result Http.Error (Maybe Player))
+  | LogInAnswer (Result Http.Error Player)
   | NoContentAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
   | GameAnswer (Result Http.Error (List AnswerCard))
@@ -140,6 +144,22 @@ update msg model =
             , expect = Http.expectWhatever NoContentAnswer
             }
         )
+    PlayerInitAnswer result ->
+      case result of
+        Ok maybePlayer ->
+          case maybePlayer of
+              Nothing -> ( model, Cmd.none )
+              Just existingPlayer ->
+                ( { model | status = LoggedIn, id = Just existingPlayer.id }
+                , Http.get
+                  { url = "https://localhost:5001/Player"
+                  , expect = Http.expectJson PlayerListAnswer (list player)
+                  }
+                )
+        Err httpErr ->
+          ( { model | status = stringHttpError httpErr }
+          , Cmd.none
+          )
     LogInAnswer result ->
       case result of
         Ok newPlayer ->
