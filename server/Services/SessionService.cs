@@ -33,8 +33,10 @@ public class SessionService
         if (_cache.TryGetValue(ConnectionKey(), out Guid playerIdBytes))
             return playerIdBytes;
         return null;
-
     }
+
+    public void RemoveSession() =>
+        _cache.Remove(ConnectionKey());
 
     /// <summary>
     /// Gets the current HttpContext, throwing an exception if not successful.

@@ -60,6 +60,7 @@ public class PlayerController : ControllerBase
             return BadRequest("No such player.");
 
         _context.Players.Remove(player);
+        _sessionService.RemoveSession();
         await _context.SaveChangesAsync();
 
         return NoContent();
