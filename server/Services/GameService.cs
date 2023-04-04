@@ -8,7 +8,7 @@ namespace Server.Services;
 /// <summary>
 /// Singleton service containing global state about the game.
 /// </summary>
-public class GameService
+public sealed class GameService : IDisposable
 {
     private readonly MemoryCache _cache;
     private Deck[] _decksInPlay = Array.Empty<Deck>();
@@ -17,7 +17,8 @@ public class GameService
 
     private const string KEY_CZAR = "czar";
     private const string KEY_WINS = "wins";
-    
+    private bool _disposed;
+
     public GameService()
     {
         _cache = new MemoryCache(new MemoryCacheOptions());
@@ -48,9 +49,6 @@ public class GameService
             ? necessaryWins
             : throw new InvalidOperationException("Amount of necessary wins not yet set.");
 
-    private void SetGameState(EGameState gameState) =>
-        _cache.Set(KEY_WINS, gameState);
-
     public EGameState GetGameState() =>
         _cache.TryGetValue<EGameState>(KEY_WINS, out var gameState)
             ? gameState
@@ -69,4 +67,18 @@ public class GameService
         _cache.TryGetValue<Guid>(KEY_CZAR, out var czar)
             ? czar
             : Guid.Empty;
+    
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _cache.Dispose();
+
+        _disposed = true;
+    }
+    
+    private void SetGameState(EGameState gameState) =>
+        _cache.Set(KEY_WINS, gameState);
+
 }
