@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Server.Models.Dtos;
 
 namespace Server.Models.Entities;
 
@@ -14,6 +15,8 @@ public partial class PromptCard : Card
             return fieldCount;
         }
     }
+
+    public PromptCardDto ToDto() => new(Id, Text, FieldCount);
 
     /// <summary>
     /// Cached regex for player-fillable fields.

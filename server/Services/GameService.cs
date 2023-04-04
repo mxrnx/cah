@@ -12,17 +12,20 @@ public sealed class GameService : IDisposable
 {
     private readonly MemoryCache _cache;
     private Deck[] _decksInPlay = Array.Empty<Deck>();
-    private DrawPile<AnswerCard>? _answerCardsDrawPile;
-    private DrawPile<PromptCard>? _promptCardsDrawPile;
+    private DrawPile<AnswerCard> _answerCardsDrawPile;
+    private DrawPile<PromptCard> _promptCardsDrawPile;
 
     private const string KEY_CZAR = "czar";
     private const string KEY_PHASE = "phase";
     private const string KEY_WINS = "wins";
+    private const string KEY_PROMPT = "prompt";
     private bool _disposed;
 
     public GameService()
     {
         _cache = new MemoryCache(new MemoryCacheOptions());
+        _answerCardsDrawPile = new DrawPile<AnswerCard>(Array.Empty<AnswerCard>());
+        _promptCardsDrawPile = new DrawPile<PromptCard>(Array.Empty<PromptCard>());
     }
     
     /// <summary>
@@ -34,27 +37,36 @@ public sealed class GameService : IDisposable
     {
         SetGameState(EGamePhase.PickingAnswers);
         SetNecessaryWins(necessaryWins);
+        DrawPromptCard();
         _decksInPlay = decks.ToArray();
         _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards));
         _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards));
     }
 
     public IEnumerable<AnswerCard> DrawAnswerCards(int count) =>
-        _answerCardsDrawPile?.DrawCards(count) ?? Array.Empty<AnswerCard>();
+        _answerCardsDrawPile.DrawCards(count);
 
-    public PromptCard DrawPromptCard() =>
-        _promptCardsDrawPile?.DrawCard()!; // TODO: fix nullability issue
-
-    public int GetNecessaryWins() =>
-        _cache.TryGetValue<int>(KEY_WINS, out var necessaryWins)
-            ? necessaryWins
-            : throw new InvalidOperationException("Amount of necessary wins not yet set.");
+    public void DrawPromptCard() =>
+        SetPromptCard(_promptCardsDrawPile.DrawCard());
 
     public EGamePhase GetGamePhase() =>
         _cache.TryGetValue<EGamePhase>(KEY_PHASE, out var gameState)
             ? gameState
             : EGamePhase.WaitingToStart;
     
+    public int GetNecessaryWins() =>
+        _cache.TryGetValue<int>(KEY_WINS, out var necessaryWins)
+            ? necessaryWins
+            : throw new InvalidOperationException("Amount of necessary wins not yet set.");
+    
+    public PromptCard GetPromptCard()
+    {
+        if (!_cache.TryGetValue<PromptCard>(KEY_PROMPT, out var promptCard) || promptCard is null)
+            throw new InvalidOperationException("Amount of necessary wins not yet set.");
+        
+        return promptCard;
+    }
+
     /// <summary>
     /// Sets the Guid of the current Card Czar.
     /// </summary>
@@ -84,5 +96,8 @@ public sealed class GameService : IDisposable
     
     private void SetNecessaryWins(int necessaryWins) =>
         _cache.Set(KEY_WINS, necessaryWins);
+
+    private void SetPromptCard(PromptCard card) =>
+        _cache.Set(KEY_PROMPT, card);
 
 }

@@ -59,7 +59,7 @@ public class GameController : ControllerBase
         if (player is null)
             return Unauthorized("Player not logged in.");
 
-        return Ok(new GameDto(player.CardsInHand));
+        return Ok(new GameDto(player.CardsInHand, _gameService.GetGamePhase(), _gameService.GetPromptCard().ToDto()));
     }
 
     [HttpGet("Phase")]
