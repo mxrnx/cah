@@ -16,6 +16,7 @@ public sealed class GameService : IDisposable
     private DrawPile<PromptCard>? _promptCardsDrawPile;
 
     private const string KEY_CZAR = "czar";
+    private const string KEY_PHASE = "phase";
     private const string KEY_WINS = "wins";
     private bool _disposed;
 
@@ -31,8 +32,8 @@ public sealed class GameService : IDisposable
     /// <param name="decks">The decks that will be used in the game.</param>
     public void SetupGame(int necessaryWins, IEnumerable<Deck> decks)
     {
-        SetGameState(EGameState.Started);
-        _cache.Set(KEY_WINS, necessaryWins);
+        SetGameState(EGamePhase.PickingAnswers);
+        SetNecessaryWins(necessaryWins);
         _decksInPlay = decks.ToArray();
         _answerCardsDrawPile = new DrawPile<AnswerCard>(_decksInPlay.SelectMany(x => x.AnswerCards));
         _promptCardsDrawPile = new DrawPile<PromptCard>(_decksInPlay.SelectMany(x => x.PromptCards));
@@ -49,10 +50,10 @@ public sealed class GameService : IDisposable
             ? necessaryWins
             : throw new InvalidOperationException("Amount of necessary wins not yet set.");
 
-    public EGameState GetGameState() =>
-        _cache.TryGetValue<EGameState>(KEY_WINS, out var gameState)
+    public EGamePhase GetGamePhase() =>
+        _cache.TryGetValue<EGamePhase>(KEY_PHASE, out var gameState)
             ? gameState
-            : EGameState.NotStarted;
+            : EGamePhase.WaitingToStart;
     
     /// <summary>
     /// Sets the Guid of the current Card Czar.
@@ -78,7 +79,10 @@ public sealed class GameService : IDisposable
         _disposed = true;
     }
     
-    private void SetGameState(EGameState gameState) =>
-        _cache.Set(KEY_WINS, gameState);
+    private void SetGameState(EGamePhase gamePhase) =>
+        _cache.Set(KEY_PHASE, gamePhase);
+    
+    private void SetNecessaryWins(int necessaryWins) =>
+        _cache.Set(KEY_WINS, necessaryWins);
 
 }

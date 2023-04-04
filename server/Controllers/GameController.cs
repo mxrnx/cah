@@ -27,7 +27,7 @@ public class GameController : ControllerBase
     [HttpPost]
     public async Task<ActionResult> Post([FromBody] int necessaryWins)
     {
-        if (_gameService.GetGameState() != EGameState.NotStarted)
+        if (_gameService.GetGamePhase() != EGamePhase.WaitingToStart)
             return BadRequest("Game has already started.");
         
         var currentPlayerId = _sessionService.GetCurrentPlayerId();
@@ -61,4 +61,8 @@ public class GameController : ControllerBase
 
         return Ok(new GameDto(player.CardsInHand));
     }
+
+    [HttpGet("Phase")]
+    public ActionResult<EGamePhase> GetPhase() =>
+        Ok(_gameService.GetGamePhase());
 }

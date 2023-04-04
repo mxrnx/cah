@@ -28,7 +28,7 @@ public class PlayerController : ControllerBase
         if (_sessionService.GetCurrentPlayerId() is not null)
             return BadRequest("Current connection already tied to a session.");
 
-        if (_gameService.GetGameState() == EGameState.Started)
+        if (_gameService.GetGamePhase() == EGamePhase.PickingAnswers)
             return BadRequest("Cannot join a game that has already started."); // TODO: consider making this possible
         
         if (name.Length is < 1 or > 20)

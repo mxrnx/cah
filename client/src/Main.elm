@@ -6,7 +6,7 @@ import Html.Attributes exposing (class)
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, bool, field, list, map, map2, map3, maybe, string)
+import Json.Decode exposing (Decoder, andThen, bool, field, list, map, map2, map3, maybe, string)
 import List.Extra
 import Time
 import UUID exposing (UUID)
@@ -105,6 +105,17 @@ answerCard =
         (field "id" UUID.jsonDecoder)
         (field "text" string)
 
+gamePhase : Decoder GamePhase
+gamePhase =
+  string |> andThen (\str ->
+    case str of
+      "WaitingToStart" -> Json.Decode.succeed WaitingToStart
+      "PickingAnswers" -> Json.Decode.succeed PickingAnswers
+      "ShowingAnswers" -> Json.Decode.succeed ShowingAnswers
+      "PickingWinner" -> Json.Decode.succeed PickingWinner
+      _ -> Json.Decode.fail "Invalid GamePhase"
+  )
+
 
 
 -- UPDATE
@@ -115,6 +126,7 @@ type Msg
   | NoContentAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
   | GameAnswer (Result Http.Error GameState)
+  | GamePhaseAnswer (Result Http.Error GamePhase)
 
   | EditName String
 
@@ -215,12 +227,28 @@ update msg model =
           ( { model | loginStatus = stringHttpError httpErr }
           , Cmd.none
           )
+    GamePhaseAnswer result ->
+      case result of
+        Ok phase ->
+          ( { model | gamePhase = phase }
+          , Cmd.none
+          )
+        Err httpErr ->
+          ( { model | loginStatus = stringHttpError httpErr }
+          , Cmd.none
+          )
     WaitingTick _ ->
       ( model
-      , Http.get
-        { url = url [ "Player" ]
-        ,  expect = Http.expectJson PlayerListAnswer (list player)
-        }
+      , Cmd.batch
+        [ Http.get
+          { url = url [ "Player" ]
+          ,  expect = Http.expectJson PlayerListAnswer (list player)
+          }
+        , Http.get
+          { url = url [ "Game", "Phase" ]
+          ,  expect = Http.expectJson GamePhaseAnswer gamePhase
+          }
+        ]
       )
     GameTick _ ->
       ( model
@@ -291,7 +319,7 @@ viewLayout model content = Html.div [ class "columns" ]
                              , Html.div [ class "column" ]
                                  [ Html.aside [ class "menu"]
                                    [ Html.ul [ class "menu-list" ]
-                                       ([Html.p [ class "menu-label" ] [ Html.text "Players" ] ] ++
+                                       (Html.p [ class "menu-label" ] [ Html.text "Players" ] ::
                                        (List.map (\p -> Html.li [] [ Html.a [] [ formatPlayerName p ] ]) model.players))
                                    ]
                                  , Html.button [ class "button mt-4", Html.Events.onClick LogOut ] [ Html.text "Log out" ]
@@ -308,7 +336,7 @@ viewContent model =
               if p.czar
               then
                 if List.length model.players >= 3
-                then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
+                then Html.button [ class "button", Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
                 else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
               else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
 
