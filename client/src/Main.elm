@@ -56,23 +56,25 @@ type GamePhase
   | PickingWinner
 
 type alias Model =
-  { userName    : String            -- username of the current player
-  , id          : Maybe UUID        -- id of the current player
-  , loginStatus : LoginStatus            -- status object
-  , gamePhase   : GamePhase
-  , players     : List Player       -- list of all players
-  , handCards   : List AnswerCard   -- this player's hand of answer cards
+  { userName     : String            -- username of the current player
+  , id           : Maybe UUID        -- id of the current player
+  , loginStatus  : LoginStatus       -- the login status of the current player
+  , gamePhase    : GamePhase         -- current phase of the game
+  , players      : List Player       -- list of all players
+  , handCards    : List AnswerCard   -- this player's hand of answer cards
+  , selectedCard : Maybe UUID        -- the currently selected card, if any
   }
 
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( { userName    = ""
-    , id          = Nothing
-    , loginStatus = NotLoggedIn
-    , gamePhase   = WaitingToStart
-    , players     = []
-    , handCards   = []
+  ( { userName     = ""
+    , id           = Nothing
+    , loginStatus  = NotLoggedIn
+    , gamePhase    = WaitingToStart
+    , players      = []
+    , handCards    = []
+    , selectedCard = Nothing
     }
   , Http.get
     { url = url [ "Player", "Me"]
@@ -133,6 +135,7 @@ type Msg
   | LogIn
   | LogOut
   | StartGame
+  | SelectCard UUID
 
   | WaitingTick Time.Posix
   | GameTick Time.Posix
@@ -176,6 +179,13 @@ update msg model =
             , expect = Http.expectWhatever NoContentAnswer
             }
         )
+    SelectCard sel ->
+      case model.gamePhase of
+        PickingAnswers ->
+          ( { model | selectedCard = Just sel }
+          , Cmd.none
+          )
+        _ -> ( model, Cmd.none )
     PlayerInitAnswer result ->
       case result of
         Ok maybePlayer ->
@@ -341,16 +351,24 @@ viewContent model =
               else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
 
     PickingAnswers -> Html.div []
-                        [ Html.div [ class "columns is-multiline is-8"] (List.map (\card -> formatCard card) model.handCards)
+                        [ Html.div [ class "columns is-multiline is-8"]
+                        (List.map (\card -> formatCard card (Just card.id == model.selectedCard)) model.handCards)
                         , Html.text "Picking cards"
                         ]
 
     _ -> Html.text "Not yet implemented" -- TODO
 
-formatCard : AnswerCard -> Html.Html Msg
-formatCard card = Html.div [ class "column is-one-quarter" ]
-                    [ Html.div [ Html.Attributes.id (UUID.toString card.id), class "box is-clickable", style "height" "20rem" ]
-                        [ Html.p [ class "is-size-3" ] [ Html.text card.text ] ] ]
+formatCard : AnswerCard -> Bool -> Html.Html Msg
+formatCard card isSelected = Html.div [ class "column is-one-quarter" ]
+                              [ Html.div
+                                  [ Html.Events.onClick (SelectCard card.id)
+                                  , Html.Attributes.id (UUID.toString card.id)
+                                  , class ( if isSelected
+                                            then "box is-clickable has-background-primary-light"
+                                            else "box is-clickable has-background-light" )
+                                  , style "height" "20rem"
+                                  ]
+                                  [ Html.p [ class "is-size-3" ] [ Html.text card.text ] ] ]
 
 formatPlayerName : Player -> Html.Html Msg
 formatPlayerName p = if p.czar
