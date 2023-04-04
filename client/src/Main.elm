@@ -4,7 +4,8 @@ import Browser
 import Html
 import Html.Attributes exposing (class, style)
 import Html.Events
-import Http exposing (Error(..), jsonBody)
+import Http exposing (jsonBody)
+import InfoHttp exposing (InfoError(..), expectJson)
 import Json.Encode as Encode
 import Json.Decode exposing (Decoder, andThen, bool, field, int, list, map2, map3, maybe, string)
 import List.Extra
@@ -88,7 +89,7 @@ init _ =
     }
   , Http.get
     { url = url [ "Player", "Me"]
-    , expect = Http.expectJson PlayerInitAnswer (maybe player)
+    , expect = expectJson PlayerInitAnswer (maybe player)
     }
   )
 
@@ -142,12 +143,12 @@ gamePhase =
 -- UPDATE
 
 type Msg
-  = PlayerInitAnswer (Result Http.Error (Maybe Player))
-  | LogInAnswer (Result Http.Error Player)
+  = PlayerInitAnswer (Result InfoError (Maybe Player))
+  | LogInAnswer (Result InfoError Player)
   | NoContentAnswer (Result Http.Error ())
-  | PlayerListAnswer (Result Http.Error (List Player))
-  | GameAnswer (Result Http.Error GameState)
-  | GamePhaseAnswer (Result Http.Error GamePhase)
+  | PlayerListAnswer (Result InfoError (List Player))
+  | GameAnswer (Result InfoError GameState)
+  | GamePhaseAnswer (Result InfoError GamePhase)
 
   | EditName String
 
@@ -173,7 +174,7 @@ update msg model =
         , Http.post
             { body = jsonBody (Encode.string model.userName)
             , url = url [ "Player" ]
-            , expect = Http.expectJson LogInAnswer player
+            , expect = expectJson LogInAnswer player
             }
         )
     LogOut ->
@@ -216,7 +217,7 @@ update msg model =
                 ( { model | loginStatus = LoggedIn, id = Just existingPlayer.id }
                 , Http.get
                   { url = url [ "Player" ]
-                  , expect = Http.expectJson PlayerListAnswer (list player)
+                  , expect = expectJson PlayerListAnswer (list player)
                   }
                 )
         Err httpErr ->
@@ -229,7 +230,7 @@ update msg model =
           ( { model | loginStatus = LoggedIn , id = Just newPlayer.id }
           , Http.get
               { url = url [ "Player" ]
-              , expect = Http.expectJson PlayerListAnswer (list player)
+              , expect = expectJson PlayerListAnswer (list player)
               }
 
           )
@@ -273,11 +274,11 @@ update msg model =
       , Cmd.batch
         [ Http.get
           { url = url [ "Player" ]
-          ,  expect = Http.expectJson PlayerListAnswer (list player)
+          ,  expect = expectJson PlayerListAnswer (list player)
           }
         , Http.get
           { url = url [ "Game", "Phase" ]
-          ,  expect = Http.expectJson GamePhaseAnswer gamePhase
+          ,  expect = expectJson GamePhaseAnswer gamePhase
           }
         ]
       )
@@ -286,31 +287,30 @@ update msg model =
       , Cmd.batch
         [ Http.get
           { url = url [ "Player" ]
-          ,  expect = Http.expectJson PlayerListAnswer (list player)
+          ,  expect = expectJson PlayerListAnswer (list player)
           }
         , Http.get
           { url = url [ "Game" ]
-          ,  expect = Http.expectJson GameAnswer gameState
+          ,  expect = expectJson GameAnswer gameState
           }
         ]
       )
 
-stringHttpError : Http.Error -> LoginStatus
+url : List String -> String
+url path = crossOrigin "https://localhost:5001" path []
+
+stringHttpError : InfoError -> LoginStatus
 stringHttpError err =
     case err of
         BadUrl str -> Error ("Bad url: " ++ str)
         Timeout -> Error "Timeout"
         NetworkError -> Error "Network error"
-        BadStatus stat -> Error ("Status " ++ String.fromInt stat)
+        BadStatus meta body -> Error ("Status " ++ String.fromInt meta.statusCode ++ ": " ++ body)
         BadBody str -> Error ("Bad body: " ++ str)
-
-url : List String -> String
-url path = crossOrigin "https://localhost:5001" path []
 
 
 
 -- SUBSCRIPTIONS
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
