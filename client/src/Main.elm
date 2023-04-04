@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Html
-import Html.Attributes
+import Html.Attributes exposing (class)
 import Html.Events
 import Http exposing (Error(..), jsonBody)
 import Json.Encode as Encode
@@ -259,39 +259,52 @@ view : Model -> Html.Html Msg
 view model =
   case model.status of
     NotLoggedIn ->
-        Html.div []
-        [ Html.input [ Html.Attributes.placeholder "Nickname", Html.Attributes.value model.userName, Html.Events.onInput EditName ] []
-        , Html.button [ Html.Events.onClick LogIn ] [ Html.text "Log in" ]
+        Html.div [ class "columns" ]
+        [ Html.input [ class "input column is-two-fifths", Html.Attributes.placeholder "Nickname", Html.Attributes.value model.userName, Html.Events.onInput EditName  ] []
+        , Html.button [ class "button column is-one-fifth", Html.Events.onClick LogIn ] [ Html.text "Log in" ]
         ]
 
     LoggingIn ->
       Html.text "Logging in..."
+    _ ->
+      viewLayout model (viewContent model)
 
+viewLayout : Model -> Html.Html Msg -> Html.Html Msg
+viewLayout model content = Html.div [ class "columns" ]
+                             [ Html.div [ class "column is-four-fifths" ] [ content ]
+                             , Html.aside [ class "column menu"]
+                                 [ Html.ul [ class "menu-list" ]
+                                     ([Html.p [ class "menu-label" ] [ Html.text "Players" ] ] ++
+                                     (List.map (\p -> Html.li [] [ Html.a [] [ formatPlayerName p ] ]) model.players))
+                                 , Html.button [ class "button", Html.Events.onClick LogOut ] [ Html.text "Log out" ]
+                                 ]
+                             ]
+
+viewContent : Model -> Html.Html Msg
+viewContent model =
+  case model.status of
     LoggedIn ->
-        Html.div []
-        [ Html.ul []
-            (List.map (\p -> Html.li [] [ formatPlayerName p ]) model.players)
-        , Html.button [ Html.Events.onClick LogOut ] [ Html.text "Log out" ]
-        , case currentPlayer model of
-            Nothing -> Html.text "Something went terribly wrong" -- TODO
-            Just p ->
-                if p.czar
-                then
-                  if List.length model.players >= 3
-                  then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
-                  else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
-                else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
-        ]
+        case currentPlayer model of
+          Nothing -> Html.text "Something went terribly wrong" -- TODO
+          Just p ->
+              if p.czar
+              then
+                if List.length model.players >= 3
+                then Html.button [ Html.Events.onClick StartGame ] [ Html.text "Start game!" ]
+                else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
+              else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
+
+    RoundPickCards -> Html.div []
+                        [ Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.handCards)
+                        , Html.text "Picking cards"
+                        ]
 
     Error msg ->
       Html.div []
       [ Html.text ("Oh no, error: " ++ msg)
       ]
 
-    RoundPickCards -> Html.div []
-                        [ Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.handCards)
-                        , Html.text "Picking cards"
-                        ]
+    _ -> Html.text "Something went terribly wrong" -- TODO
 
 
 formatPlayerName : Player -> Html.Html Msg
