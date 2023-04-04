@@ -43,29 +43,36 @@ type alias AnswerCard =
   , text      : String
   }
 
-type Status
+type LoginStatus
   = Error String
   | NotLoggedIn
   | LoggingIn
   | LoggedIn
-  | RoundPickCards
+
+type GamePhase
+  = WaitingToStart
+  | PickingAnswers
+  | ShowingAnswers
+  | PickingWinner
 
 type alias Model =
-  { userName  : String            -- username of the current player
-  , id        : Maybe UUID        -- id of the current player
-  , status    : Status            -- status object
-  , players   : List Player       -- list of all players
-  , handCards : List AnswerCard   -- this player's hand of answer cards
+  { userName    : String            -- username of the current player
+  , id          : Maybe UUID        -- id of the current player
+  , loginStatus : LoginStatus            -- status object
+  , gamePhase   : GamePhase
+  , players     : List Player       -- list of all players
+  , handCards   : List AnswerCard   -- this player's hand of answer cards
   }
 
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( { userName = ""
-    , id       = Nothing
-    , status   = NotLoggedIn
-    , players  = []
-    , handCards     = []
+  ( { userName    = ""
+    , id          = Nothing
+    , loginStatus = NotLoggedIn
+    , gamePhase   = WaitingToStart
+    , players     = []
+    , handCards   = []
     }
   , Http.get
     { url = url [ "Player", "Me"]
@@ -99,6 +106,7 @@ answerCard =
         (field "text" string)
 
 
+
 -- UPDATE
 
 type Msg
@@ -107,10 +115,13 @@ type Msg
   | NoContentAnswer (Result Http.Error ())
   | PlayerListAnswer (Result Http.Error (List Player))
   | GameAnswer (Result Http.Error GameState)
+
   | EditName String
+
   | LogIn
   | LogOut
   | StartGame
+
   | WaitingTick Time.Posix
   | GameTick Time.Posix
 
@@ -123,7 +134,7 @@ update msg model =
         , Cmd.none
         )
     LogIn ->
-        ( { model | status = LoggingIn }
+        ( { model | loginStatus = LoggingIn }
         , Http.post
             { body = jsonBody (Encode.string model.userName)
             , url = url [ "Player" ]
@@ -134,7 +145,7 @@ update msg model =
         case model.id of
             Nothing -> ( model , Cmd.none )
             Just id ->
-                ( { model | status = NotLoggedIn }
+                ( { model | loginStatus = NotLoggedIn }
                 , Http.request
                     { method = "DELETE"
                     , headers = []
@@ -146,7 +157,7 @@ update msg model =
                     }
                 )
     StartGame ->
-        ( { model | status = RoundPickCards }
+        ( model
         , Http.post
             { body = jsonBody (Encode.int 5) -- TODO: make number of necessary wins configurable
             , url = url [ "Game" ]
@@ -159,20 +170,20 @@ update msg model =
           case maybePlayer of
               Nothing -> ( model, Cmd.none )
               Just existingPlayer ->
-                ( { model | status = LoggedIn, id = Just existingPlayer.id }
+                ( { model | loginStatus = LoggedIn, id = Just existingPlayer.id }
                 , Http.get
                   { url = url [ "Player" ]
                   , expect = Http.expectJson PlayerListAnswer (list player)
                   }
                 )
         Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
+          ( { model | loginStatus = stringHttpError httpErr }
           , Cmd.none
           )
     LogInAnswer result ->
       case result of
         Ok newPlayer ->
-          ( { model | status = LoggedIn , id = Just newPlayer.id }
+          ( { model | loginStatus = LoggedIn , id = Just newPlayer.id }
           , Http.get
               { url = url [ "Player" ]
               , expect = Http.expectJson PlayerListAnswer (list player)
@@ -180,7 +191,7 @@ update msg model =
 
           )
         Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
+          ( { model | loginStatus = stringHttpError httpErr }
           , Cmd.none
           )
     NoContentAnswer _ -> ( model , Cmd.none )
@@ -191,7 +202,7 @@ update msg model =
           , Cmd.none
           )
         Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
+          ( { model | loginStatus = stringHttpError httpErr }
           , Cmd.none
           )
     GameAnswer result ->
@@ -201,7 +212,7 @@ update msg model =
           , Cmd.none
           )
         Err httpErr ->
-          ( { model | status = stringHttpError httpErr }
+          ( { model | loginStatus = stringHttpError httpErr }
           , Cmd.none
           )
     WaitingTick _ ->
@@ -225,7 +236,7 @@ update msg model =
         ]
       )
 
-stringHttpError : Http.Error -> Status
+stringHttpError : Http.Error -> LoginStatus
 stringHttpError err =
     case err of
         BadUrl str -> Error ("Bad url: " ++ str)
@@ -244,12 +255,12 @@ url path = crossOrigin "https://localhost:5001" path []
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  if model.status == NotLoggedIn || model.status == LoggingIn
+  if model.loginStatus == NotLoggedIn || model.loginStatus == LoggingIn
   then Sub.none
   else
-    if model.status == RoundPickCards
-    then Time.every 1000 GameTick
-    else Time.every 1000 WaitingTick
+    if model.gamePhase == WaitingToStart
+    then Time.every 1000 WaitingTick
+    else Time.every 1000 GameTick
 
 
 
@@ -257,7 +268,7 @@ subscriptions model =
 
 view : Model -> Html.Html Msg
 view model =
-  case model.status of
+  case model.loginStatus of
     NotLoggedIn ->
         Html.div [ class "columns" ]
         [ Html.input [ class "input column is-two-fifths", Html.Attributes.placeholder "Nickname", Html.Attributes.value model.userName, Html.Events.onInput EditName  ] []
@@ -266,24 +277,31 @@ view model =
 
     LoggingIn ->
       Html.text "Logging in..."
-    _ ->
+    LoggedIn ->
       viewLayout model (viewContent model)
+    Error msg ->
+      Html.div []
+      [ Html.text ("Oh no, error: " ++ msg)
+      ]
+
 
 viewLayout : Model -> Html.Html Msg -> Html.Html Msg
 viewLayout model content = Html.div [ class "columns" ]
                              [ Html.div [ class "column is-four-fifths" ] [ content ]
-                             , Html.aside [ class "column menu"]
-                                 [ Html.ul [ class "menu-list" ]
-                                     ([Html.p [ class "menu-label" ] [ Html.text "Players" ] ] ++
-                                     (List.map (\p -> Html.li [] [ Html.a [] [ formatPlayerName p ] ]) model.players))
-                                 , Html.button [ class "button", Html.Events.onClick LogOut ] [ Html.text "Log out" ]
+                             , Html.div [ class "column" ]
+                                 [ Html.aside [ class "menu"]
+                                   [ Html.ul [ class "menu-list" ]
+                                       ([Html.p [ class "menu-label" ] [ Html.text "Players" ] ] ++
+                                       (List.map (\p -> Html.li [] [ Html.a [] [ formatPlayerName p ] ]) model.players))
+                                   ]
+                                 , Html.button [ class "button mt-4", Html.Events.onClick LogOut ] [ Html.text "Log out" ]
                                  ]
                              ]
 
 viewContent : Model -> Html.Html Msg
 viewContent model =
-  case model.status of
-    LoggedIn ->
+  case model.gamePhase of
+    WaitingToStart ->
         case currentPlayer model of
           Nothing -> Html.text "Something went terribly wrong" -- TODO
           Just p ->
@@ -294,17 +312,12 @@ viewContent model =
                 else Html.i [] [ Html.text "Waiting for 3 or more players to start..." ]
               else Html.i [] [ Html.text "Waiting for czar to start the game..." ]
 
-    RoundPickCards -> Html.div []
+    PickingAnswers -> Html.div []
                         [ Html.div [] (List.map (\card -> Html.p [] [ Html.text card.text ]) model.handCards)
                         , Html.text "Picking cards"
                         ]
 
-    Error msg ->
-      Html.div []
-      [ Html.text ("Oh no, error: " ++ msg)
-      ]
-
-    _ -> Html.text "Something went terribly wrong" -- TODO
+    _ -> Html.text "Not yet implemented" -- TODO
 
 
 formatPlayerName : Player -> Html.Html Msg
