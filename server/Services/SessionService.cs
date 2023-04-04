@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Caching.Memory;
+
 namespace Server.Services;
 
 using Microsoft.AspNetCore.Http;
@@ -5,12 +7,12 @@ using Microsoft.AspNetCore.Http;
 public class SessionService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
-    
-    private const string PLAYER_ID = "_PlayerId";
+    private readonly IMemoryCache _cache;
 
-    public SessionService(IHttpContextAccessor httpContextAccessor)
+    public SessionService(IHttpContextAccessor httpContextAccessor, IMemoryCache cache)
     {
         _httpContextAccessor = httpContextAccessor;
+        _cache = cache;
     }
     
     /// <summary>
@@ -19,7 +21,7 @@ public class SessionService
     /// <param name="playerID">Guid for this session's player.</param>
     public void CreateSession(Guid playerID)
     {
-        GetContext().Session.Set(PLAYER_ID, playerID.ToByteArray());
+        _cache.Set(ConnectionKey(), playerID);
     }
 
     /// <summary>
@@ -28,8 +30,8 @@ public class SessionService
     /// <returns>Guid of the current player if one exists, otherwise null.</returns>
     public Guid? GetCurrentPlayerId()
     {
-        if (GetContext().Session.TryGetValue(PLAYER_ID, out var playerIdBytes))
-            return new Guid(playerIdBytes);
+        if (_cache.TryGetValue(ConnectionKey(), out Guid playerIdBytes))
+            return playerIdBytes;
         return null;
 
     }
@@ -41,4 +43,11 @@ public class SessionService
     /// <exception cref="InvalidOperationException">Thrown when accessing the context fails.</exception>
     private HttpContext GetContext() =>
         _httpContextAccessor.HttpContext ?? throw new InvalidOperationException("Could not access HttpContext");
+
+    /// <summary>
+    /// Returns the memory cache key for this specific connection.
+    /// </summary>
+    /// <returns></returns>
+    private string ConnectionKey() =>
+        GetContext().Connection.Id;
 }

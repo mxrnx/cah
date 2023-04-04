@@ -31,14 +31,14 @@ public class GameController : ControllerBase
         
         var currentPlayerId = _sessionService.GetCurrentPlayerId();
         if (currentPlayerId is null)
-            return BadRequest("Player not logged in.");
+            return Unauthorized("Player not logged in.");
+        
+        if (currentPlayerId != _gameService.GetCzar())
+            return Unauthorized("Player is not the Card Czar.");
         
         if (necessaryWins is < 1 or > 20)
             return BadRequest("Number of necessary wins must be greater than 1 and less than 20.");
 
-        if (currentPlayerId != _gameService.GetCzar())
-            return Unauthorized("You are not the Card Czar.");
-        
         _gameService.SetupGame(necessaryWins, _context.Decks); // TODO: make it possible to select decks
 
         foreach (var player in _context.Players)
