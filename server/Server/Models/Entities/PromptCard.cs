@@ -11,7 +11,7 @@ public partial class PromptCard : Card
         {
             var fieldCount = FieldRegex().Matches(Text).Count;
             if (fieldCount < 1)
-                throw new InvalidOperationException("Every black card needs at least 1 field.");
+                throw new InvalidOperationException("Every prompt card needs at least 1 field.");
             return fieldCount;
         }
     }
