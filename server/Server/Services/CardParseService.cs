@@ -57,7 +57,7 @@ public class CardParseService
     private static IEnumerable<DirectoryInfo> GetDeckDirectories()
     {
         
-        var cardsDirectoryPath = Directory.GetCurrentDirectory() + "/../decks/";
+        var cardsDirectoryPath = Directory.GetCurrentDirectory() + "/../../decks/";
         var cardsDirectoryInfo = new DirectoryInfo(cardsDirectoryPath);
         if (cardsDirectoryInfo is null || !cardsDirectoryInfo.Exists)
             throw new InvalidOperationException($"Path '{cardsDirectoryPath}' to cards does not exist. Please create it.");
