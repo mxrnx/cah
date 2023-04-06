@@ -7,7 +7,8 @@ import Html.Events
 import Http exposing (jsonBody)
 import InfoHttp exposing (InfoError(..), expectJson)
 import Json.Encode as Encode
-import Json.Decode exposing (Decoder, andThen, bool, field, int, list, map2, map3, maybe, string)
+import Json.Decode exposing (Decoder, andThen, bool, field, int, list, map2, map3, map4, maybe, string)
+import List exposing (filter)
 import List.Extra
 import Time
 import UUID exposing (UUID)
@@ -37,6 +38,7 @@ type alias Player =
 
 type alias GameState =
   { handCards  : List AnswerCard
+  , roundCards : List AnswerCard
   , gamePhase  : GamePhase
   , promptCard : PromptCard
   }
@@ -71,8 +73,9 @@ type alias Model =
   , gamePhase    : GamePhase         -- current phase of the game
   , players      : List Player       -- list of all players
   , handCards    : List AnswerCard   -- this player's hand of answer cards
+  , roundCards   : List AnswerCard   -- this player's played cards this round
   , selectedCard : Maybe UUID        -- the currently selected card, if any
-  , promptCard   : Maybe PromptCard
+  , promptCard   : Maybe PromptCard  -- this round's prompt
   }
 
 
@@ -84,6 +87,7 @@ init _ =
     , gamePhase    = WaitingToStart
     , players      = []
     , handCards    = []
+    , roundCards   = []
     , selectedCard = Nothing
     , promptCard   = Nothing
     }
@@ -109,8 +113,9 @@ player =
     (field "czar" bool)
 
 gameState : Decoder GameState
-gameState = map3 GameState
+gameState = map4 GameState
               (field "handCards" (list answerCard))
+              (field "roundCards" (list answerCard))
               (field "gamePhase" gamePhase)
               (field "promptCard" promptCard)
 
@@ -207,7 +212,16 @@ update msg model =
           , Cmd.none
           )
         _ -> ( model, Cmd.none )
-    PlayCard -> (model, Cmd.none) -- TODO
+    PlayCard ->
+      case model.selectedCard of
+        Nothing -> ( model, Cmd.none )
+        Just playedCard -> ( { model | handCards = filter (\x -> x.id /= playedCard ) model.handCards } -- TODO: is this necessary?
+                           , Http.post
+                               { body = jsonBody (Encode.string (UUID.toString playedCard))
+                               , url = url [ "Game", "Card" ]
+                               , expect = Http.expectWhatever NoContentAnswer
+                               }
+                           )
     PlayerInitAnswer result ->
       case result of
         Ok maybePlayer ->
@@ -252,7 +266,8 @@ update msg model =
     GameAnswer result ->
       case result of
         Ok state ->
-          ( { model | handCards = state.handCards, promptCard = Just state.promptCard, gamePhase = state.gamePhase }
+          ( { model | handCards = state.handCards, roundCards = state.roundCards,
+                      promptCard = Just state.promptCard, gamePhase = state.gamePhase }
           , Cmd.none
           )
         Err httpErr ->
