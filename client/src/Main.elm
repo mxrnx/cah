@@ -218,7 +218,7 @@ update msg model =
         Just playedCard -> ( { model | handCards = filter (\x -> x.id /= playedCard ) model.handCards } -- TODO: is this necessary?
                            , Http.post
                                { body = jsonBody (Encode.string (UUID.toString playedCard))
-                               , url = url [ "Game", "Card" ]
+                               , url = url [ "Round", "PlayCard" ]
                                , expect = Http.expectWhatever NoContentAnswer
                                }
                            )
