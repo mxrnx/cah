@@ -70,6 +70,7 @@ public class GameController : ControllerBase
 
         var card = await _context.AnswerCards.SingleAsync(x => x.Id == cardId);
         currentPlayer.CardsThisRound.Add(card);
+        currentPlayer.CardsInHand.Remove(card);
 
         if (_context.Players.Any(p => p.CardsThisRound.Count != _gameService.GetPromptCard().FieldCount))
             return NoContent(); // Round is not finished yet, so we're done here
