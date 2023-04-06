@@ -5,4 +5,8 @@ using Server.Models.Entities;
 namespace Server.Models.Dtos;
 
 [PublicAPI]
-public record GameDto(IEnumerable<AnswerCard> HandCards, EGamePhase GamePhase, PromptCardDto PromptCard);
+public record GameDto(
+    IEnumerable<AnswerCard> HandCards,
+    IEnumerable<AnswerCard> RoundCards,
+    EGamePhase GamePhase,
+    PromptCardDto PromptCard);

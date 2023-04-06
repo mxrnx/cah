@@ -51,6 +51,34 @@ public class GameController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("Card")]
+    public async Task<ActionResult> PostCard([FromBody] Guid cardId)
+    {
+        if (_gameService.GetGamePhase() != EGamePhase.PickingAnswers)
+            return BadRequest("Wrong game phase.");
+        
+        var currentPlayerId = _sessionService.GetCurrentPlayerId();
+        if (currentPlayerId is null)
+            return Unauthorized("Player not logged in.");
+        
+        if (currentPlayerId == _gameService.GetCzar())
+            return Unauthorized("Player is the Card Czar.");
+
+        var currentPlayer = await _context.Players.SingleAsync(x => x.Id == currentPlayerId);
+        if (currentPlayer.CardsThisRound.Count >= _gameService.GetPromptCard().FieldCount)
+            return BadRequest("Player already played maximum amount of cards.");
+
+        var card = await _context.AnswerCards.SingleAsync(x => x.Id == cardId);
+        currentPlayer.CardsThisRound.Add(card);
+
+        if (_context.Players.Any(p => p.CardsThisRound.Count != _gameService.GetPromptCard().FieldCount))
+            return NoContent(); // Round is not finished yet, so we're done here
+
+        // TODO: go to next phase
+        
+        return NoContent();
+    }
+
     [HttpGet]
     public async Task<ActionResult<GameDto>> Get()
     {
@@ -59,7 +87,7 @@ public class GameController : ControllerBase
         if (player is null)
             return Unauthorized("Player not logged in.");
 
-        return Ok(new GameDto(player.CardsInHand, _gameService.GetGamePhase(), _gameService.GetPromptCard().ToDto()));
+        return Ok(new GameDto(player.CardsInHand, player.CardsThisRound, _gameService.GetGamePhase(), _gameService.GetPromptCard().ToDto()));
     }
 
     [HttpGet("Phase")]
