@@ -4,15 +4,8 @@ using Server.Services;
 
 namespace Server;
 
-public class CahContext : DbContext
+public class CahContext(DbContextOptions<CahContext> options, ICardParseService cardParseService) : DbContext(options)
 {
-    private readonly CardParseService _cardParseService;
-    
-    public CahContext(DbContextOptions<CahContext> options, CardParseService cardParseService) : base(options)
-    {
-        _cardParseService = cardParseService;
-    }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -30,14 +23,14 @@ public class CahContext : DbContext
             .IsRequired();
         
         // Seed decks and prompt and answer cards
-        var decks = _cardParseService.ParseDecks().ToArray(); // Convert to array to avoid multiple enumeration
+        var decks = cardParseService.ParseDecks().ToArray(); // Convert to array to avoid multiple enumeration
         modelBuilder.Entity<Deck>()
             .HasData(decks);
 
         modelBuilder.Entity<PromptCard>()
-            .HasData(_cardParseService.ParsePromptCards(decks));
+            .HasData(cardParseService.ParsePromptCards(decks));
         modelBuilder.Entity<AnswerCard>()
-            .HasData(_cardParseService.ParseAnswerCards(decks));
+            .HasData(cardParseService.ParseAnswerCards(decks));
     }
 
     public DbSet<Player> Players { get; set; } = null!;

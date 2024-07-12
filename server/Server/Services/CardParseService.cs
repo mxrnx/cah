@@ -3,11 +3,20 @@ using Server.Models.Entities;
 
 namespace Server.Services;
 
-public class CardParseService
+public interface ICardParseService
 {
     /// <summary>
     /// Create new decks based on directory names
     /// </summary>
+    IEnumerable<Deck> ParseDecks();
+
+    IEnumerable<PromptCard> ParsePromptCards(Deck[] decks);
+
+    IEnumerable<AnswerCard> ParseAnswerCards(Deck[] decks);
+}
+
+public class CardParseService : ICardParseService
+{
     public IEnumerable<Deck> ParseDecks()
     {
         return GetDeckDirectories().Select(dir => new Deck(Guid.NewGuid(), dir.Name)).ToList();

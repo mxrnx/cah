@@ -1,20 +1,21 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Server.Models.Dtos;
 
 namespace Server.Models.Entities;
 
-public class Player
+public class Player(Guid id, string name)
 {
-    public Player(Guid id, string name)
-    {
-        Id = id;
-        Name = name;
-        CardsInHand = new List<AnswerCard>();
-        CardsThisRound = new List<AnswerCard>();
-    }
+    public Guid Id { get; init; } = id;
+    
+    [MaxLength(128)]
+    public string Name { get; init; } = name;
+    
+    [NotMapped]
+    public ICollection<Guid> CardsInHand { get; set; } = new List<Guid>();
+    
+    [NotMapped]
+    public ICollection<Guid> CardsThisRound { get; set; } = new List<Guid>();
     
     public PlayerDto ToDto(bool isCzar) => new(Id, Name, isCzar);
-    public Guid Id { get; init; }
-    public string Name { get; init; }
-    public ICollection<AnswerCard> CardsInHand { get; set; }
-    public ICollection<AnswerCard> CardsThisRound { get; set; }
 }

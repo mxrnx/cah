@@ -10,9 +10,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 
 // Add services
-builder.Services.AddSingleton<GameService>();
-builder.Services.AddSingleton<SessionService>();
-builder.Services.AddTransient<CardParseService>();
+builder.Services.AddSingleton<IGameService, GameService>();
+builder.Services.AddSingleton<ISessionService, SessionService>();
+builder.Services.AddTransient<ICardParseService, CardParseService>();
+builder.Services.AddTransient<ICardService, CardService>();
 
 builder.Services.AddDbContext<CahContext>(opt =>
     opt.UseInMemoryDatabase("CAH"));

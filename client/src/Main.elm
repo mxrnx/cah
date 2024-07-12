@@ -355,7 +355,7 @@ view model =
       viewLayout model (viewContent model)
     Error msg ->
       Html.div []
-      [ Html.text ("Oh no, error: " ++ msg)
+      [ Html.text ("An error occurred: " ++ msg)
       ]
 
 
