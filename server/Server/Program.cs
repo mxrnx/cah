@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Server;
+using Server.Models.Entities;
 using Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,7 @@ builder.Services.AddMemoryCache();
 
 // Add services
 builder.Services.AddSingleton<IGameService, GameService>();
-builder.Services.AddSingleton<ISessionService, SessionService>();
+builder.Services.AddScoped<IPlayerService, PlayerService>();
 builder.Services.AddTransient<ICardParseService, CardParseService>();
 builder.Services.AddTransient<ICardService, CardService>();
 

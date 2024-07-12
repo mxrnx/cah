@@ -34,6 +34,7 @@ type alias Player =
   { id        : UUID
   , name      : String
   , czar      : Bool
+  , secret    : Maybe UUID
   }
 
 type alias GameState =
@@ -68,6 +69,7 @@ type GamePhase
 
 type alias Model =
   { userName     : String            -- username of the current player
+  , secret       : Maybe UUID              -- secret to identify the client
   , id           : Maybe UUID        -- id of the current player
   , loginStatus  : LoginStatus       -- the login status of the current player
   , gamePhase    : GamePhase         -- current phase of the game
@@ -82,6 +84,7 @@ type alias Model =
 init : () -> (Model, Cmd Msg)
 init _ =
   ( { userName     = ""
+    , secret       = Nothing
     , id           = Nothing
     , loginStatus  = NotLoggedIn
     , gamePhase    = WaitingToStart
@@ -91,10 +94,7 @@ init _ =
     , selectedCard = Nothing
     , promptCard   = Nothing
     }
-  , Http.get
-    { url = url [ "Player", "Me"]
-    , expect = expectJson PlayerInitAnswer (maybe player)
-    }
+  , Cmd.none
   )
 
 currentPlayer : Model -> Maybe Player
@@ -107,10 +107,11 @@ currentPlayer model =
 
 player : Decoder Player
 player =
-  map3 Player
+  map4 Player
     (field "id" UUID.jsonDecoder)
     (field "name" string)
     (field "czar" bool)
+    (field "secret" (maybe UUID.jsonDecoder))
 
 gameState : Decoder GameState
 gameState = map4 GameState
@@ -183,28 +184,33 @@ update msg model =
             }
         )
     LogOut ->
-        case model.id of
+        case model.secret of
             Nothing -> ( model , Cmd.none )
-            Just id ->
+            Just secret ->
                 ( { model | loginStatus = NotLoggedIn }
                 , Http.request
                     { method = "DELETE"
                     , headers = []
                     , timeout = Nothing
                     , tracker = Nothing
-                    , body = jsonBody (Encode.string (UUID.toString id))
+                    , body = jsonBody (Encode.string (UUID.toString secret))
                     , url = url [ "Player" ]
                     , expect = Http.expectWhatever NoContentAnswer
                     }
                 )
     StartGame ->
-        ( model
-        , Http.post
-            { body = jsonBody (Encode.int 5) -- TODO: make number of necessary wins configurable
-            , url = url [ "Game" ]
-            , expect = Http.expectWhatever NoContentAnswer
-            }
-        )
+        case model.secret of
+            Nothing -> ( model , Cmd.none ) -- TODO: feedback to user
+            Just secret ->
+                ( model
+                , Http.post
+                    { body = jsonBody (Encode.object [ ("secret", (Encode.string (UUID.toString secret)))
+                                                     , ("necessaryWins", (Encode.int 5)) -- TODO: make number of necessary wins configurable
+                                                     ])
+                    , url = url [ "Game" ]
+                    , expect = Http.expectWhatever NoContentAnswer
+                    }
+                )
     SelectCard sel ->
       case model.gamePhase of
         PickingAnswers ->
@@ -241,7 +247,7 @@ update msg model =
     LogInAnswer result ->
       case result of
         Ok newPlayer ->
-          ( { model | loginStatus = LoggedIn , id = Just newPlayer.id }
+          ( { model | loginStatus = LoggedIn , id = Just newPlayer.id , secret = newPlayer.secret }
           , Http.get
               { url = url [ "Player" ]
               , expect = expectJson PlayerListAnswer (list player)
@@ -298,18 +304,21 @@ update msg model =
         ]
       )
     GameTick _ ->
-      ( model
-      , Cmd.batch
-        [ Http.get
-          { url = url [ "Player" ]
-          ,  expect = expectJson PlayerListAnswer (list player)
-          }
-        , Http.get
-          { url = url [ "Game" ]
-          ,  expect = expectJson GameAnswer gameState
-          }
-        ]
-      )
+      case model.secret of
+          Nothing -> ( model, Cmd.none )
+          Just secret ->
+              ( model
+              , Cmd.batch
+                [ Http.get
+                  { url = url [ "Player" ]
+                  ,  expect = expectJson PlayerListAnswer (list player)
+                  }
+                , Http.get
+                  { url = url [ "Game?secret=" ++ (UUID.toString secret) ]
+                  ,  expect = expectJson GameAnswer gameState
+                  }
+                ]
+              )
 
 url : List String -> String
 url path = crossOrigin "https://localhost:5001" path []
